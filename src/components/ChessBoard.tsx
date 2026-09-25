@@ -6,6 +6,7 @@ import "./ChessBoard.css";
 interface ChessBoardProps {
     pieces: Piece[];
     selectedSquare?: Square | null;
+    legalMoves?: Square[];
     onSquareClick?: (square: Square) => void;
 }
 
@@ -16,6 +17,7 @@ interface ChessBoardProps {
 function ChessBoard({
     pieces,
     selectedSquare,
+    legalMoves = [],
     onSquareClick,
 }: ChessBoardProps) {
 
@@ -30,6 +32,8 @@ function ChessBoard({
                     const piece = pieces.find(
                         (piece) => piece.square === square
                     );
+                    const isSelected = selectedSquare === square;
+                    const isLegalMove = legalMoves.includes(square);
 
                     return (
                         <div
@@ -39,7 +43,9 @@ function ChessBoard({
             ? "light-square"
             : "dark-square"
     } ${
-        selectedSquare === square ? "selected-square" : ""
+        isSelected ? "selected-square" : ""
+    } ${
+        isLegalMove ? "legal-move-square" : ""
     }`}
     onClick={() => onSquareClick?.(square)}
 >

@@ -30,7 +30,6 @@ export type File = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h";
  */
 export type Rank = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
-
 /**
  * A Square combines a file and rank.
  *
@@ -45,6 +44,14 @@ export type Rank = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
  */
 export type Square = `${File}${Rank}`;
 
+export type Rotation = 0 | 90 | 180 | 270;
+
+export type GameStatus =
+    | "playing"
+    | "check"
+    | "checkmate"
+    | "stalemate"
+    | "draw";
 
 /**
  * Represents one chess piece on the board.
@@ -54,4 +61,13 @@ export interface Piece {
     type: PieceType;
     color: Color;
     square: Square;
+    hasMoved: boolean;
+}
+
+export interface GameState {
+    pieces: Piece[];
+    turn: Color;
+    rotation: Rotation;
+    completedRounds: number;
+    status: GameStatus;
 }

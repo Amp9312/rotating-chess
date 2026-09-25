@@ -22,10 +22,7 @@ export const ranks: Rank[] = [
     1,
 ];
 
-export function squareToCoordinates(square: Square): {
-    fileIndex: number;
-    rankIndex: number;
-} {
+export function squareToCoordinates(square: Square) {
     const file = square[0] as File;
     const rank = Number(square[1]) as Rank;
 
