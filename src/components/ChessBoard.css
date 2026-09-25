@@ -1,0 +1,68 @@
+.chess-board {
+    /*
+     * CSS Grid gives us a natural 8 x 8 layout.
+     *
+     * Each column gets one fraction of the available width.
+     */
+    display: grid;
+
+    grid-template-columns: repeat(8, 70px);
+    grid-template-rows: repeat(8, 70px);
+
+    border: 4px solid #111;
+
+    /*
+     * Prevents accidental selection while dragging pieces.
+     */
+    user-select: none;
+}
+
+
+/*
+ * Every square occupies one grid cell.
+ */
+.board-square {
+    width: 70px;
+    height: 70px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    cursor: pointer;
+}
+
+
+/*
+ * Alternating chess-board colors.
+ *
+ * We can eventually replace these with whatever visual
+ * design you want.
+ */
+.board-square {
+    width: 70px;
+    height: 70px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    cursor: pointer;
+}
+
+.light-square {
+    background: #f0d9b5;
+}
+
+.dark-square {
+    background: #b58863;
+}
+.piece {
+    font-size: 64px;
+    line-height: 1;
+    cursor: grab;
+}
+.selected-square {
+    box-shadow: inset 0 0 0 4px #f6e05e;
+}
+}
