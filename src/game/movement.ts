@@ -1,4 +1,9 @@
-import type { Piece, Square } from "../types";
+import type {
+    Piece,
+    PieceType,
+    Square,
+} from "../types";
+
 import {
     coordinatesToSquare,
     squareToCoordinates,
@@ -26,12 +31,12 @@ const bishopDirections: Direction[] = [
 const knightOffsets: Direction[] = [
     { file: 1, rank: 2 },
     { file: 2, rank: 1 },
-    { file: -1, rank: 2 },
-    { file: -2, rank: 1 },
-    { file: 1, rank: -2 },
     { file: 2, rank: -1 },
+    { file: 1, rank: -2 },
     { file: -1, rank: -2 },
     { file: -2, rank: -1 },
+    { file: -2, rank: 1 },
+    { file: -1, rank: 2 },
 ];
 
 function getPieceAt(
@@ -47,7 +52,9 @@ function isOccupied(
     square: Square,
     pieces: Piece[]
 ): boolean {
-    return getPieceAt(square, pieces) !== undefined;
+    return pieces.some(
+        (piece) => piece.square === square
+    );
 }
 
 function getSlidingMoves(
@@ -57,8 +64,12 @@ function getSlidingMoves(
 ): Square[] {
     const moves: Square[] = [];
 
-    const { fileIndex, rankIndex } =
-        squareToCoordinates(piece.square);
+    const {
+        fileIndex,
+        rankIndex,
+    } = squareToCoordinates(
+        piece.square
+    );
 
     for (const direction of directions) {
         let currentFile =
@@ -73,29 +84,38 @@ function getSlidingMoves(
             currentRank >= 0 &&
             currentRank < 8
         ) {
-            const square = coordinatesToSquare(
-                currentFile,
-                currentRank
-            );
+            const square =
+                coordinatesToSquare(
+                    currentFile,
+                    currentRank
+                );
 
-            const occupyingPiece =
-                getPieceAt(square, pieces);
+            const targetPiece =
+                getPieceAt(
+                    square,
+                    pieces
+                );
 
-            if (!occupyingPiece) {
+            if (!targetPiece) {
                 moves.push(square);
             } else {
+                // We can capture an enemy piece.
                 if (
-                    occupyingPiece.color !==
+                    targetPiece.color !==
                     piece.color
                 ) {
                     moves.push(square);
                 }
 
+                // Either way, the path ends here.
                 break;
             }
 
-            currentFile += direction.file;
-            currentRank += direction.rank;
+            currentFile +=
+                direction.file;
+
+            currentRank +=
+                direction.rank;
         }
     }
 
@@ -108,37 +128,45 @@ function getKnightMoves(
 ): Square[] {
     const moves: Square[] = [];
 
-    const { fileIndex, rankIndex } =
-        squareToCoordinates(piece.square);
+    const {
+        fileIndex,
+        rankIndex,
+    } = squareToCoordinates(
+        piece.square
+    );
 
     for (const offset of knightOffsets) {
-        const file =
+        const targetFile =
             fileIndex + offset.file;
 
-        const rank =
+        const targetRank =
             rankIndex + offset.rank;
 
         if (
-            file < 0 ||
-            file >= 8 ||
-            rank < 0 ||
-            rank >= 8
+            targetFile < 0 ||
+            targetFile >= 8 ||
+            targetRank < 0 ||
+            targetRank >= 8
         ) {
             continue;
         }
 
         const square =
             coordinatesToSquare(
-                file,
-                rank
+                targetFile,
+                targetRank
             );
 
-        const occupyingPiece =
-            getPieceAt(square, pieces);
+        const targetPiece =
+            getPieceAt(
+                square,
+                pieces
+            );
 
         if (
-            !occupyingPiece ||
-            occupyingPiece.color !== piece.color
+            !targetPiece ||
+            targetPiece.color !==
+                piece.color
         ) {
             moves.push(square);
         }
@@ -153,8 +181,12 @@ function getKingMoves(
 ): Square[] {
     const moves: Square[] = [];
 
-    const { fileIndex, rankIndex } =
-        squareToCoordinates(piece.square);
+    const {
+        fileIndex,
+        rankIndex,
+    } = squareToCoordinates(
+        piece.square
+    );
 
     for (
         let fileOffset = -1;
@@ -173,33 +205,37 @@ function getKingMoves(
                 continue;
             }
 
-            const file =
+            const targetFile =
                 fileIndex + fileOffset;
 
-            const rank =
+            const targetRank =
                 rankIndex + rankOffset;
 
             if (
-                file < 0 ||
-                file >= 8 ||
-                rank < 0 ||
-                rank >= 8
+                targetFile < 0 ||
+                targetFile >= 8 ||
+                targetRank < 0 ||
+                targetRank >= 8
             ) {
                 continue;
             }
 
             const square =
                 coordinatesToSquare(
-                    file,
-                    rank
+                    targetFile,
+                    targetRank
                 );
 
-            const occupyingPiece =
-                getPieceAt(square, pieces);
+            const targetPiece =
+                getPieceAt(
+                    square,
+                    pieces
+                );
 
             if (
-                !occupyingPiece ||
-                occupyingPiece.color !== piece.color
+                !targetPiece ||
+                targetPiece.color !==
+                    piece.color
             ) {
                 moves.push(square);
             }
@@ -304,7 +340,7 @@ function getPawnMoves(
     return moves;
 }
 
-export function getLegalMoves(
+export function getPseudoLegalMoves(
     piece: Piece,
     pieces: Piece[]
 ): Square[] {

@@ -2,89 +2,97 @@ import { useState } from "react";
 
 import ChessBoard from "./components/ChessBoard";
 import { initialGameState } from "./initialGameState";
-import { getLegalMoves } from "./game/movement";
+import {
+    getPseudoLegalMoves,
+} from "./game/movement";
 import { makeMove } from "./game/rules";
-import type { GameState, Square } from "./types";
+import type {
+    GameState,
+    Square,
+} from "./types";
 import "./App.css";
 
 function App() {
     const [gameState, setGameState] =
-        useState<GameState>(initialGameState);
+        useState<GameState>(
+            initialGameState
+        );
 
     const [selectedSquare, setSelectedSquare] =
         useState<Square | null>(null);
 
-    const selectedPiece = gameState.pieces.find(
-    (piece) => piece.square === selectedSquare);
-
-    const legalMoves = selectedPiece
-    ? getLegalMoves(
-        selectedPiece,
-        gameState.pieces
-    )
-    : [];
-
-function handleSquareClick(square: Square) {
-    const clickedPiece = gameState.pieces.find(
-        (piece) => piece.square === square
-    );
-
-    // No piece is currently selected.
-    if (!selectedSquare) {
-        if (!clickedPiece) {
-            return;
-        }
-
-        if (clickedPiece.color !== gameState.turn) {
-            return;
-        }
-
-        console.log("Selected piece:", clickedPiece);
-        setSelectedSquare(square);
-
-        return;
-    }
-
-    const selectedPiece = gameState.pieces.find(
-        (piece) => piece.square === selectedSquare
-    );
-
-    if (!selectedPiece) {
-        setSelectedSquare(null);
-        return;
-    }
-
-    const legalMoves = getLegalMoves(
-        selectedPiece,
-        gameState.pieces
-    );
-
-    // The clicked square is a legal destination.
-    if (legalMoves.includes(square)) {
-        const newGameState = makeMove(
-            gameState,
-            selectedSquare,
-            square
+    const selectedPiece =
+        gameState.pieces.find(
+            (piece) =>
+                piece.square === selectedSquare
         );
 
-        setGameState(newGameState);
-        setSelectedSquare(null);
+    const legalMoves = selectedPiece
+        ? getPseudoLegalMoves(
+            selectedPiece,
+            gameState.pieces
+        )
+        : [];
 
-        return;
-    }
-
-    // Clicking another piece changes the selection.
-    if (
-        clickedPiece &&
-        clickedPiece.color === gameState.turn
+    function handleSquareClick(
+        square: Square
     ) {
-        setSelectedSquare(square);
-        return;
-    }
+        const clickedPiece =
+            gameState.pieces.find(
+                (piece) =>
+                    piece.square === square
+            );
 
-    // Clicking elsewhere clears the selection.
-    setSelectedSquare(null);
-}
+        // Nothing is currently selected.
+        if (!selectedSquare) {
+            if (!clickedPiece) {
+                return;
+            }
+
+            if (
+                clickedPiece.color !==
+                gameState.turn
+            ) {
+                return;
+            }
+
+            setSelectedSquare(square);
+
+            return;
+        }
+
+        // A piece is already selected.
+        const newGameState =
+            makeMove(
+                gameState,
+                selectedSquare,
+                square
+            );
+
+        // The move was valid.
+        if (newGameState) {
+            setGameState(newGameState);
+            setSelectedSquare(null);
+
+            return;
+        }
+
+        // The clicked square contains
+        // another piece belonging to the
+        // current player.
+        if (
+            clickedPiece &&
+            clickedPiece.color ===
+                gameState.turn
+        ) {
+            setSelectedSquare(square);
+
+            return;
+        }
+
+        // Otherwise clear the selection.
+        setSelectedSquare(null);
+    }
 
     return (
         <main>
@@ -92,9 +100,13 @@ function handleSquareClick(square: Square) {
 
             <ChessBoard
                 pieces={gameState.pieces}
-                selectedSquare={selectedSquare}
+                selectedSquare={
+                    selectedSquare
+                }
                 legalMoves={legalMoves}
-                onSquareClick={handleSquareClick}
+                onSquareClick={
+                    handleSquareClick
+                }
             />
         </main>
     );
