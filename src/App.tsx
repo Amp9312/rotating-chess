@@ -3,8 +3,8 @@ import { useState } from "react";
 import ChessBoard from "./components/ChessBoard";
 import { initialGameState } from "./initialGameState";
 import {
-    getPseudoLegalMoves,
-} from "./game/movement";
+    getLegalMoves,
+} from "./game/rules";
 import { makeMove } from "./game/rules";
 import type {
     GameState,
@@ -27,12 +27,12 @@ function App() {
                 piece.square === selectedSquare
         );
 
-    const legalMoves = selectedPiece
-        ? getPseudoLegalMoves(
-            selectedPiece,
-            gameState.pieces
-        )
-        : [];
+const legalMoves = selectedPiece
+    ? getLegalMoves(
+        selectedPiece,
+        gameState
+    )
+    : [];
 
     function handleSquareClick(
         square: Square

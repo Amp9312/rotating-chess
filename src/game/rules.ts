@@ -5,6 +5,7 @@ import type {
 
 import {
     getPseudoLegalMoves,
+    isSquareAttacked,
 } from "./movement";
 
 export function isValidMove(
@@ -17,23 +18,24 @@ export function isValidMove(
             (piece) => piece.square === from
         );
 
-    // There must be a piece on the starting square.
     if (!movingPiece) {
         return false;
     }
 
-    // The piece must belong to the player whose turn it is.
-    if (movingPiece.color !== gameState.turn) {
+    if (
+        movingPiece.color !==
+        gameState.turn
+    ) {
         return false;
     }
 
-    const pseudoLegalMoves =
-        getPseudoLegalMoves(
+    const legalMoves =
+        getLegalMoves(
             movingPiece,
-            gameState.pieces
+            gameState
         );
 
-    return pseudoLegalMoves.includes(to);
+    return legalMoves.includes(to);
 }
 
 export function makeMove(
@@ -70,4 +72,90 @@ export function makeMove(
                 ? "black"
                 : "white",
     };
+}
+
+function findKing(
+    color: "white" | "black",
+    pieces: Piece[]
+): Piece | undefined {
+    return pieces.find(
+        (piece) =>
+            piece.type === "king" &&
+            piece.color === color
+    );
+}
+
+export function isKingInCheck(
+    color: "white" | "black",
+    pieces: Piece[]
+): boolean {
+    const king = findKing(
+        color,
+        pieces
+    );
+
+    if (!king) {
+        return false;
+    }
+
+    const opponentColor =
+        color === "white"
+            ? "black"
+            : "white";
+
+    return isSquareAttacked(
+        king.square,
+        opponentColor,
+        pieces
+    );
+}
+
+export function getLegalMoves(
+    piece: Piece,
+    gameState: GameState
+): Square[] {
+    const pseudoLegalMoves =
+        getPseudoLegalMoves(
+            piece,
+            gameState.pieces
+        );
+
+    const legalMoves: Square[] = [];
+
+    for (const destination of pseudoLegalMoves) {
+        const hypotheticalPieces =
+            gameState.pieces
+                .filter(
+                    (otherPiece) =>
+                        otherPiece.square !==
+                        destination
+                )
+                .map((otherPiece) => {
+                    if (
+                        otherPiece.square ===
+                        piece.square
+                    ) {
+                        return {
+                            ...otherPiece,
+                            square: destination,
+                            hasMoved: true,
+                        };
+                    }
+
+                    return otherPiece;
+                });
+
+        if (
+            !isKingInCheck(
+                piece.color,
+                hypotheticalPieces
+            )
+        ) {
+            legalMoves.push(
+                destination
+            );
+        }
+    }
+
+    return legalMoves;
 }

@@ -391,3 +391,27 @@ export function getPseudoLegalMoves(
             return [];
     }
 }
+
+export function isSquareAttacked(
+    square: Square,
+    byColor: "white" | "black",
+    pieces: Piece[]
+): boolean {
+    for (const piece of pieces) {
+        if (piece.color !== byColor) {
+            continue;
+        }
+
+        const moves = getPseudoLegalMoves(
+            piece,
+            pieces
+        );
+
+        if (moves.includes(square)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
