@@ -7,4 +7,5 @@ export const initialGameState: GameState = {
     rotation: 0,
     completedRounds: 0,
     status: "playing",
+    lastMove: null,
 };

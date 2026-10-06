@@ -4,13 +4,18 @@ import ChessBoard from "./components/ChessBoard";
 import { initialGameState } from "./initialGameState";
 import {
     getLegalMoves,
+    getGameStatus,
+    makeMove,
 } from "./game/rules";
-import { makeMove } from "./game/rules";
+import { promotePawn } from "./game/promotion";
+import PromotionDialog from "./components/PromotionDialog";
 import type {
     GameState,
+    PromotionPiece,
     Square,
 } from "./types";
 import "./App.css";
+
 
 function App() {
     const [gameState, setGameState] =
@@ -21,18 +26,21 @@ function App() {
     const [selectedSquare, setSelectedSquare] =
         useState<Square | null>(null);
 
+    const [promotionSquare, setPromotionSquare] =
+        useState<Square | null>(null);
+
     const selectedPiece =
         gameState.pieces.find(
             (piece) =>
                 piece.square === selectedSquare
         );
 
-const legalMoves = selectedPiece
-    ? getLegalMoves(
-        selectedPiece,
-        gameState
-    )
-    : [];
+    const legalMoves = selectedPiece
+        ? getLegalMoves(
+            selectedPiece,
+            gameState
+        )
+        : [];
 
     function handleSquareClick(
         square: Square
@@ -62,17 +70,35 @@ const legalMoves = selectedPiece
         }
 
         // A piece is already selected.
-        const newGameState =
+        const moveResult =
             makeMove(
                 gameState,
                 selectedSquare,
                 square
             );
 
-        // The move was valid.
-        if (newGameState) {
-            setGameState(newGameState);
+        if (moveResult.type === "move") {
+            setGameState(
+                moveResult.gameState
+            );
+
             setSelectedSquare(null);
+
+            return;
+        }
+
+        if (
+            moveResult.type === "promotion"
+        ) {
+            setGameState(
+                moveResult.gameState
+            );
+
+            setSelectedSquare(null);
+
+            setPromotionSquare(
+                moveResult.square
+            );
 
             return;
         }
@@ -94,9 +120,41 @@ const legalMoves = selectedPiece
         setSelectedSquare(null);
     }
 
+    function handlePromotion(
+        promotionPiece: PromotionPiece
+    ) {
+        if (!promotionSquare) {
+            return;
+        }
+
+        const promotedGameState =
+            promotePawn(
+                gameState,
+                promotionSquare,
+                promotionPiece
+            );
+
+        setGameState({
+            ...promotedGameState,
+            status: getGameStatus(
+                promotedGameState
+            ),
+        });
+
+        setPromotionSquare(null);
+    }
+
     return (
         <main>
             <h1>Rotating Chess</h1>
+
+            <p>
+                Turn: {gameState.turn}
+            </p>
+
+            <p>
+                Status: {gameState.status}
+            </p>
 
             <ChessBoard
                 pieces={gameState.pieces}
@@ -108,6 +166,12 @@ const legalMoves = selectedPiece
                     handleSquareClick
                 }
             />
+
+            {promotionSquare && (
+                <PromotionDialog
+                    onSelect={handlePromotion}
+                />
+            )}
         </main>
     );
 }

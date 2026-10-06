@@ -1,8 +1,11 @@
 import type {
     Piece,
-    PieceType,
     Square,
 } from "../types";
+
+import{
+    isEnPassantCapture,
+} from "./enPassant"
 
 import {
     coordinatesToSquare,
@@ -402,12 +405,13 @@ export function isSquareAttacked(
             continue;
         }
 
-        const moves = getPseudoLegalMoves(
-            piece,
-            pieces
-        );
+        const attacks =
+            getAttackSquares(
+                piece,
+                pieces
+            );
 
-        if (moves.includes(square)) {
+        if (attacks.includes(square)) {
             return true;
         }
     }
@@ -415,3 +419,59 @@ export function isSquareAttacked(
     return false;
 }
 
+export function getAttackSquares(
+    piece: Piece,
+    pieces: Piece[]
+): Square[] {
+    if (piece.type !== "pawn") {
+        return getPseudoLegalMoves(
+            piece,
+            pieces
+        );
+    }
+
+    const attacks: Square[] = [];
+
+    const {
+        fileIndex,
+        rankIndex,
+    } = squareToCoordinates(
+        piece.square
+    );
+
+    const direction =
+        piece.color === "white"
+            ? -1
+            : 1;
+
+    const attackRank =
+        rankIndex + direction;
+
+    if (
+        attackRank < 0 ||
+        attackRank >= 8
+    ) {
+        return attacks;
+    }
+
+    for (const fileOffset of [-1, 1]) {
+        const attackFile =
+            fileIndex + fileOffset;
+
+        if (
+            attackFile < 0 ||
+            attackFile >= 8
+        ) {
+            continue;
+        }
+
+        attacks.push(
+            coordinatesToSquare(
+                attackFile,
+                attackRank
+            )
+        );
+    }
+
+    return attacks;
+}

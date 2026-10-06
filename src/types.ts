@@ -53,6 +53,12 @@ export type GameStatus =
     | "stalemate"
     | "draw";
 
+export type PromotionPiece =
+    | "queen"
+    | "rook"
+    | "bishop"
+    | "knight";
+
 /**
  * Represents one chess piece on the board.
  */
@@ -64,10 +70,17 @@ export interface Piece {
     hasMoved: boolean;
 }
 
+export interface LastMove {
+    pieceId: string;
+    from: Square;
+    to: Square;
+}
+
 export interface GameState {
     pieces: Piece[];
     turn: Color;
     rotation: Rotation;
     completedRounds: number;
     status: GameStatus;
+    lastMove: LastMove | null;
 }
