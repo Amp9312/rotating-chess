@@ -24,6 +24,10 @@ import {
     squareToCoordinates,
 } from "./coordinates";
 
+import {
+    getCastlingMoves,
+} from "./castling";
+
 export type MoveResult =
     | {
         type: "invalid";
@@ -99,53 +103,74 @@ export function makeMove(
         };
     }
 
-const isEnPassant =
-    isEnPassantCapture(
-        gameState,
-        movingPiece,
-        to
-    );
+    const isEnPassant =
+        isEnPassantCapture(
+            gameState,
+            movingPiece,
+            to
+        );
 
     const enPassantCapturedSquare =
-    isEnPassant &&
-    gameState.lastMove
-        ? gameState.lastMove.to
-        : null;
+        isEnPassant &&
+        gameState.lastMove
+            ? gameState.lastMove.to
+            : null;
 
-const updatedPieces =
-    gameState.pieces
-        .filter((piece) => {
-            // Normal capture.
-            if (
-                piece.square === to
-            ) {
-                return false;
-            }
+    const castlingRookMove =
+        getCastlingRookMove(
+            movingPiece,
+            to
+        );
 
-            // En passant capture.
-            if (
-                enPassantCapturedSquare &&
-                piece.square ===
-                    enPassantCapturedSquare
-            ) {
-                return false;
-            }
+    const updatedPieces =
+        gameState.pieces
+            .filter((piece) => {
+                // Normal capture.
+                if (
+                    piece.square === to
+                ) {
+                    return false;
+                }
 
-            return true;
-        })
-        .map((piece) => {
-            if (
-                piece.square === from
-            ) {
-                return {
-                    ...piece,
-                    square: to,
-                    hasMoved: true,
-                };
-            }
+                // En passant capture.
+                if (
+                    enPassantCapturedSquare &&
+                    piece.square ===
+                        enPassantCapturedSquare
+                ) {
+                    return false;
+                }
 
-            return piece;
-        });
+                return true;
+            })
+            .map((piece) => {
+                // Move the selected piece.
+                if (
+                    piece.square === from
+                ) {
+                    return {
+                        ...piece,
+                        square: to,
+                        hasMoved: true,
+                    };
+                }
+
+                // Move the rook during castling.
+                if (
+                    castlingRookMove &&
+                    piece.square ===
+                        castlingRookMove.from
+                ) {
+                    return {
+                        ...piece,
+                        square:
+                            castlingRookMove.to,
+                        hasMoved: true,
+                    };
+                }
+
+                return piece;
+            });
 
     const nextTurn =
         gameState.turn === "white"
@@ -298,11 +323,19 @@ export function getLegalMoves(
     piece: Piece,
     gameState: GameState
 ): Square[] {
+    // --------------------------------------------------
+    // 1. Get normal movement options.
+    // --------------------------------------------------
+
     const pseudoLegalMoves =
         getPseudoLegalMoves(
             piece,
             gameState.pieces
         );
+
+    // --------------------------------------------------
+    // 2. Get en-passant options.
+    // --------------------------------------------------
 
     const enPassantMoves =
         getEnPassantMoves(
@@ -310,37 +343,105 @@ export function getLegalMoves(
             gameState
         );
 
+    // --------------------------------------------------
+    // 3. Get castling options.
+    // --------------------------------------------------
+
+    const castlingMoves =
+        getCastlingMoves(
+            piece,
+            gameState
+        );
+
+    // --------------------------------------------------
+    // 4. Combine all possible moves.
+    // --------------------------------------------------
+
     const candidateMoves = [
         ...pseudoLegalMoves,
         ...enPassantMoves,
+        ...castlingMoves,
     ];
 
     const legalMoves: Square[] = [];
 
-for (
-    const destination of candidateMoves
-) {
-    const isEnPassant =
-    isEnPassantCapture(
-        gameState,
-        piece,
-        destination
-    );
+    // --------------------------------------------------
+    // 5. Test every candidate move.
+    // --------------------------------------------------
 
-    const enPassantCapturedSquare =
-    isEnPassant &&
-    gameState.lastMove
-        ? gameState.lastMove.to
-        : null;
+    for (
+        const destination of candidateMoves
+    ) {
+
+        // --------------------------------------------------
+        // Determine whether this candidate is en passant.
+        // --------------------------------------------------
+
+        const isEnPassant =
+            isEnPassantCapture(
+                gameState,
+                piece,
+                destination
+            );
+
+        const enPassantCapturedSquare =
+            isEnPassant &&
+            gameState.lastMove
+                ? gameState.lastMove.to
+                : null;
+
+        // --------------------------------------------------
+        // Determine whether this candidate is castling.
+        // --------------------------------------------------
+
+        const castlingRookMove =
+            getCastlingRookMove(
+                piece,
+                destination
+            );
+
+        // --------------------------------------------------
+        // Create a hypothetical board representing
+        // what the position would look like AFTER
+        // this move.
+        // --------------------------------------------------
 
         const hypotheticalPieces =
             gameState.pieces
-                .filter(
-                    (otherPiece) =>
-                        otherPiece.square !==
+                .filter((otherPiece) => {
+
+                    // Normal capture:
+                    //
+                    // If another piece occupies the
+                    // destination square, remove it.
+                    if (
+                        otherPiece.square ===
                         destination
-                )
+                    ) {
+                        return false;
+                    }
+
+                    // En-passant capture:
+                    //
+                    // The captured pawn is NOT on the
+                    // destination square. It is on the
+                    // square recorded by lastMove.
+                    if (
+                        enPassantCapturedSquare &&
+                        otherPiece.square ===
+                            enPassantCapturedSquare
+                    ) {
+                        return false;
+                    }
+
+                    return true;
+                })
                 .map((otherPiece) => {
+
+                    // --------------------------------------------------
+                    // Move the selected piece.
+                    // --------------------------------------------------
+
                     if (
                         otherPiece.square ===
                         piece.square
@@ -352,8 +453,30 @@ for (
                         };
                     }
 
+                    // --------------------------------------------------
+                    // If this is castling, move the rook too.
+                    // --------------------------------------------------
+
+                    if (
+                        castlingRookMove &&
+                        otherPiece.square ===
+                            castlingRookMove.from
+                    ) {
+                        return {
+                            ...otherPiece,
+                            square:
+                                castlingRookMove.to,
+                            hasMoved: true,
+                        };
+                    }
+
                     return otherPiece;
                 });
+
+        // --------------------------------------------------
+        // Finally, make sure this hypothetical position
+        // does not leave our own king in check.
+        // --------------------------------------------------
 
         if (
             !isKingInCheck(
@@ -438,4 +561,58 @@ export function getGameStatus(
     }
 
     return "playing";
+}
+
+function getCastlingRookMove(
+    piece: Piece,
+    destination: Square
+): {
+    from: Square;
+    to: Square;
+} | null {
+    if (piece.type !== "king") {
+        return null;
+    }
+
+    if (
+        piece.color === "white" &&
+        destination === "g1"
+    ) {
+        return {
+            from: "h1",
+            to: "f1",
+        };
+    }
+
+    if (
+        piece.color === "white" &&
+        destination === "c1"
+    ) {
+        return {
+            from: "a1",
+            to: "d1",
+        };
+    }
+
+    if (
+        piece.color === "black" &&
+        destination === "g8"
+    ) {
+        return {
+            from: "h8",
+            to: "f8",
+        };
+    }
+
+    if (
+        piece.color === "black" &&
+        destination === "c8"
+    ) {
+        return {
+            from: "a8",
+            to: "d8",
+        };
+    }
+
+    return null;
 }
