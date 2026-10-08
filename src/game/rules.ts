@@ -28,6 +28,10 @@ import {
     getCastlingMoves,
 } from "./castling";
 
+import {
+    getNextRotation,
+} from "./rotation";
+
 export type MoveResult =
     | {
         type: "invalid";
@@ -79,18 +83,18 @@ export function makeMove(
     from: Square,
     to: Square
 ): MoveResult {
-    if (
-        !isValidMove(
-            gameState,
-            from,
-            to
-        )
-    ) {
+    /*
+     * First make sure the requested move is legal.
+     */
+    if (!isValidMove(gameState, from, to)) {
         return {
             type: "invalid",
         };
     }
 
+    /*
+     * Find the piece being moved.
+     */
     const movingPiece =
         gameState.pieces.find(
             (piece) =>
@@ -103,6 +107,10 @@ export function makeMove(
         };
     }
 
+    /*
+     * Determine whether this move is
+     * an en passant capture.
+     */
     const isEnPassant =
         isEnPassantCapture(
             gameState,
@@ -110,29 +118,59 @@ export function makeMove(
             to
         );
 
+    /*
+     * If this is en passant, the captured
+     * pawn is not on the destination square.
+     *
+     * lastMove.to tells us where that pawn is.
+     */
     const enPassantCapturedSquare =
         isEnPassant &&
         gameState.lastMove
             ? gameState.lastMove.to
             : null;
 
+    /*
+     * Determine whether this move is castling.
+     *
+     * If it is, this tells us where the rook
+     * needs to move.
+     */
     const castlingRookMove =
         getCastlingRookMove(
             movingPiece,
             to
         );
 
+    /*
+     * Move the pieces.
+     *
+     * This handles:
+     *
+     * - normal movement
+     * - normal captures
+     * - en passant captures
+     * - castling rook movement
+     */
     const updatedPieces =
         gameState.pieces
             .filter((piece) => {
-                // Normal capture.
+                /*
+                 * Normal capture:
+                 * remove whatever occupies the
+                 * destination square.
+                 */
                 if (
                     piece.square === to
                 ) {
                     return false;
                 }
 
-                // En passant capture.
+                /*
+                 * En passant capture:
+                 * remove the pawn being captured,
+                 * which is not on the destination square.
+                 */
                 if (
                     enPassantCapturedSquare &&
                     piece.square ===
@@ -144,7 +182,10 @@ export function makeMove(
                 return true;
             })
             .map((piece) => {
-                // Move the selected piece.
+                /*
+                 * Move the piece that initiated
+                 * the move.
+                 */
                 if (
                     piece.square === from
                 ) {
@@ -155,7 +196,10 @@ export function makeMove(
                     };
                 }
 
-                // Move the rook during castling.
+                /*
+                 * If this is castling, move the rook
+                 * to its new square as well.
+                 */
                 if (
                     castlingRookMove &&
                     piece.square ===
@@ -172,15 +216,69 @@ export function makeMove(
                 return piece;
             });
 
+    /*
+     * Change whose turn it is.
+     */
     const nextTurn =
         gameState.turn === "white"
             ? "black"
             : "white";
 
+    /*
+     * A round is completed whenever Black
+     * finishes a move.
+     *
+     * White moves → Black moves
+     *                  ↑
+     *             round completed
+     */
+    const roundCompleted =
+        gameState.turn === "black";
+
+    /*
+     * Increase the completed-round counter
+     * only when Black has just moved.
+     */
+    const nextCompletedRounds =
+        roundCompleted
+            ? gameState.completedRounds + 1
+            : gameState.completedRounds;
+
+    /*
+     * Rotate the board after every fifth
+     * completed round.
+     *
+     * Example:
+     *
+     * 5 rounds  → 90°
+     * 10 rounds → 180°
+     * 15 rounds → 270°
+     * 20 rounds → 0°
+     */
+    const nextRotation =
+        roundCompleted &&
+        nextCompletedRounds % 5 === 0
+            ? getNextRotation(
+                gameState.rotation
+            )
+            : gameState.rotation;
+
+    /*
+     * Build the new game state.
+     */
     const newGameState: GameState = {
         ...gameState,
+
         pieces: updatedPieces,
+
         turn: nextTurn,
+
+        completedRounds:
+            nextCompletedRounds,
+
+        rotation:
+            nextRotation,
+
         lastMove: {
             pieceId: movingPiece.id,
             from,
@@ -188,6 +286,16 @@ export function makeMove(
         },
     };
 
+    /*
+     * Check whether the moving pawn has
+     * reached the promotion edge.
+     *
+     * Notice that we pass the CURRENT rotation.
+     *
+     * At this point the move itself occurred under
+     * the old orientation. The rotation changes only
+     * after the completed round.
+     */
     if (
         movingPiece.type === "pawn" &&
         isPromotionSquare(
@@ -203,13 +311,18 @@ export function makeMove(
         };
     }
 
+    /*
+     * If there is no promotion, determine the
+     * resulting game status.
+     */
     return {
         type: "move",
         gameState: {
             ...newGameState,
-            status: getGameStatus(
-                newGameState
-            ),
+            status:
+                getGameStatus(
+                    newGameState
+                ),
         },
     };
 }
@@ -229,26 +342,29 @@ function findKing(
 
 export function isKingInCheck(
     color: Color,
-    pieces: Piece[]
+    pieces: Piece[],
+    rotation: Rotation
 ): boolean {
-    const king = findKing(
-        color,
-        pieces
-    );
+    const king =
+        findKing(
+            color,
+            pieces
+        );
 
     if (!king) {
         return false;
     }
 
-    const opponentColor =
+    const opponent =
         color === "white"
             ? "black"
             : "white";
 
     return isSquareAttacked(
         king.square,
-        opponentColor,
-        pieces
+        opponent,
+        pieces,
+        rotation
     );
 }
 
@@ -330,7 +446,8 @@ export function getLegalMoves(
     const pseudoLegalMoves =
         getPseudoLegalMoves(
             piece,
-            gameState.pieces
+            gameState.pieces,
+            gameState.rotation
         );
 
     // --------------------------------------------------

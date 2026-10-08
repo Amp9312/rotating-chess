@@ -1,8 +1,6 @@
 import type {
-    Color,
     GameState,
     PromotionPiece,
-    Rotation,
     Square,
 } from "../types";
 
@@ -10,43 +8,45 @@ import {
     squareToCoordinates,
 } from "./coordinates";
 
+
 export function isPromotionSquare(
     square: Square,
-    color: Color,
-    rotation: Rotation
+    color: "white" | "black",
+    rotation: 0 | 90 | 180 | 270
 ): boolean {
-    const { rankIndex } =
-        squareToCoordinates(square);
+    const {
+        fileIndex,
+        rankIndex,
+    } = squareToCoordinates(square);
+
+    const direction =
+        getPawnDirection(
+            color,
+            rotation
+        );
 
     /*
-     * At 0°:
-     * White promotes at rank 8.
-     * Black promotes at rank 1.
-     *
-     * Because the board will eventually rotate,
-     * the promotion edge changes with rotation.
+     * A pawn promotes when it reaches the
+     * edge it is moving toward.
      */
 
-    switch (rotation) {
-        case 0:
-            return color === "white"
-                ? rankIndex === 0
-                : rankIndex === 7;
-
-        case 90:
-            return false;
-
-        case 180:
-            return color === "white"
-                ? rankIndex === 7
-                : rankIndex === 0;
-
-        case 270:
-            return false;
-
-        default:
-            return false;
+    if (direction.file === 1) {
+        return fileIndex === 7;
     }
+
+    if (direction.file === -1) {
+        return fileIndex === 0;
+    }
+
+    if (direction.rank === 1) {
+        return rankIndex === 7;
+    }
+
+    if (direction.rank === -1) {
+        return rankIndex === 0;
+    }
+
+    return false;
 }
 
 export function promotePawn(

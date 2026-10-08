@@ -13,18 +13,23 @@ export function isEnPassantCapture(
     movingPiece: Piece,
     to: Square
 ): boolean {
-
-    // 1. The moving piece must be a pawn.
+    /*
+     * Only pawns can perform en passant.
+     */
     if (movingPiece.type !== "pawn") {
         return false;
     }
 
-    // 2. There must be a previous move.
+    /*
+     * En passant requires a previous move.
+     */
     if (!gameState.lastMove) {
         return false;
     }
 
-    // 3. Find the piece that made the previous move.
+    /*
+     * Find the piece that made the previous move.
+     */
     const previousPiece =
         gameState.pieces.find(
             (piece) =>
@@ -36,8 +41,10 @@ export function isEnPassantCapture(
         return false;
     }
 
-    // 4. The previous piece must be
-    //    an enemy pawn.
+    /*
+     * The previous piece must have been
+     * an opposing pawn.
+     */
     if (
         previousPiece.type !== "pawn" ||
         previousPiece.color === movingPiece.color
@@ -45,8 +52,10 @@ export function isEnPassantCapture(
         return false;
     }
 
-    // 5. Get the coordinates of the
-    //    previous move.
+    /*
+     * Get the logical coordinates of the
+     * previous move.
+     */
     const previousFrom =
         squareToCoordinates(
             gameState.lastMove.from
@@ -57,72 +66,122 @@ export function isEnPassantCapture(
             gameState.lastMove.to
         );
 
-    // 6. The previous pawn must have
-    //    moved exactly two squares.
-    const previousRankDistance =
-        Math.abs(
-            previousFrom.rankIndex -
-            previousTo.rankIndex
+    /*
+     * Determine how the previous pawn was
+     * oriented when it made its move.
+     */
+    const previousDirection =
+        getPawnDirection(
+            previousPiece.color,
+            gameState.rotation
         );
 
-    if (previousRankDistance !== 2) {
+    /*
+     * A two-square pawn move must move exactly
+     * two squares in its forward direction.
+     */
+    const fileDifference =
+        previousTo.fileIndex -
+        previousFrom.fileIndex;
+
+    const rankDifference =
+        previousTo.rankIndex -
+        previousFrom.rankIndex;
+
+    const expectedFileDifference =
+        previousDirection.file * 2;
+
+    const expectedRankDifference =
+        previousDirection.rank * 2;
+
+    if (
+        fileDifference !==
+            expectedFileDifference ||
+        rankDifference !==
+            expectedRankDifference
+    ) {
         return false;
     }
 
-    // 7. Get the coordinates of the
-    //    current pawn and destination.
+    /*
+     * Get the coordinates of the pawn attempting
+     * the en passant capture.
+     */
     const movingCoordinates =
         squareToCoordinates(
             movingPiece.square
         );
 
     const destinationCoordinates =
-        squareToCoordinates(to
-        );
+        squareToCoordinates(to);
 
-    const previousCoordinates =
-        squareToCoordinates(
-            previousPiece.square
-        );
-
-    // 8. The enemy pawn must now be
-    //    directly beside our pawn.
+    /*
+     * The opposing pawn must currently be
+     * immediately adjacent to the moving pawn.
+     */
     const fileDistance =
         Math.abs(
             movingCoordinates.fileIndex -
-            previousCoordinates.fileIndex
+            previousTo.fileIndex
         );
 
-    if (fileDistance !== 1) {
-        return false;
+    const rankDistance =
+        Math.abs(
+            movingCoordinates.rankIndex -
+            previousTo.rankIndex
+        );
+
+    /*
+     * The pawns must be adjacent along the
+     * axis perpendicular to their movement.
+     */
+    const expectedAdjacentFile =
+        previousDirection.file === 0;
+
+    if (expectedAdjacentFile) {
+        if (fileDistance !== 1) {
+            return false;
+        }
+
+        if (rankDistance !== 0) {
+            return false;
+        }
+    } else {
+        if (rankDistance !== 1) {
+            return false;
+        }
+
+        if (fileDistance !== 0) {
+            return false;
+        }
     }
 
-    // 9. The destination must be one
-    //    square forward for our pawn.
-    const direction =
-        movingPiece.color === "white"
-            ? -1
-            : 1;
+    /*
+     * The destination must be one forward step
+     * from the moving pawn.
+     */
+const movingDirection =
+    getPawnDirection(
+        movingPiece.color,
+        gameState.rotation
+    );
 
-    const expectedDestinationRank =
-        movingCoordinates.rankIndex +
-        direction;
+const expectedDestinationFile =
+    previousTo.fileIndex +
+    movingDirection.file;
 
-    if (
-        destinationCoordinates.rankIndex !==
+const expectedDestinationRank =
+    previousTo.rankIndex +
+    movingDirection.rank;
+
+if (
+    destinationCoordinates.fileIndex !==
+        expectedDestinationFile ||
+    destinationCoordinates.rankIndex !==
         expectedDestinationRank
-    ) {
-        return false;
-    }
+) {
+    return false;
+}
 
-    // 10. The destination must be on
-    //     the enemy pawn's file.
-    if (
-        destinationCoordinates.fileIndex !==
-        previousCoordinates.fileIndex
-    ) {
-        return false;
-    }
-
-    return true;
+return true;
 }

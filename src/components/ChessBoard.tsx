@@ -1,81 +1,159 @@
-import type { Piece, Square } from "../types";
-import { files, ranks } from "../game/coordinates";
-import "./ChessBoard.css";
+import type {
+    Piece,
+    Square,
+    Rotation,
+} from "../types";
 
+import {
+    files,
+    ranks,
+    squareToCoordinates,
+} from "../game/coordinates";
+
+import {
+    logicalToPhysical,
+} from "../game/rotation";
+
+import "./ChessBoard.css";
 
 interface ChessBoardProps {
     pieces: Piece[];
     selectedSquare?: Square | null;
     legalMoves?: Square[];
-    onSquareClick?: (square: Square) => void;
+    rotation?: Rotation;
+    onSquareClick?: (
+        square: Square
+    ) => void;
+    showCoordinates?: boolean;
+    showRotationDebug?: boolean;
 }
 
-
-
-
-
-function ChessBoard({
+export function ChessBoard({
     pieces,
     selectedSquare,
     legalMoves = [],
     onSquareClick,
+    rotation = 0,
+    showCoordinates = false,
+    showRotationDebug = false,
 }: ChessBoardProps) {
 
     return (
         <div className="chess-board">
-
-            {ranks.map((rank) =>
+            {ranks.flatMap((rank) =>
                 files.map((file) => {
+                    const square =
+                        `${file}${rank}` as Square;
 
-                    const square = `${file}${rank}` as Square;
+                    const {
+                        fileIndex,
+                        rankIndex,
+                    } =
+                        squareToCoordinates(
+                            square
+                        );
 
-                    const piece = pieces.find(
-                        (piece) => piece.square === square
-                    );
-                    const isSelected = selectedSquare === square;
-                    const isLegalMove = legalMoves.includes(square);
+                    /*
+                     * Determine the square's color
+                     * from its LOGICAL coordinates.
+                     *
+                     * Rotation changes where the square
+                     * appears, not what color the square is.
+                     */
+                    const isLightSquare =
+                        (fileIndex + rankIndex) % 2 === 0;
+
+                    /*
+                     * Determine where this logical square
+                     * should appear visually.
+                     */
+                    const visual =
+                        logicalToPhysical(
+                            {
+                                fileIndex,
+                                rankIndex,
+                            },
+                            rotation
+                        );
+
+                    const piece =
+                        pieces.find(
+                            piece =>
+                                piece.square ===
+                                square
+                        );
+
+                    const isSelected =
+                        selectedSquare === square;
+
+                    const isLegalMove =
+                        legalMoves.includes(
+                            square
+                        );
 
                     return (
                         <div
-    key={square}
-    className={`board-square ${
-        (files.indexOf(file) + ranks.indexOf(rank)) % 2 === 0
-            ? "light-square"
-            : "dark-square"
-    } ${
-        isSelected ? "selected-square" : ""
-    } ${
-        isLegalMove ? "legal-move-square" : ""
-    }`}
-    onClick={() => onSquareClick?.(square)}
->
+                            key={square}
+                            className={[
+                                "board-square",
 
-                            {piece && (
-                                <div className="piece">
-                                    {getPieceSymbol(piece)}
-                                </div>
-                            )}
+                                isLightSquare
+                                    ? "light-square"
+                                    : "dark-square",
 
+                                isSelected
+                                    ? "selected-square"
+                                    : "",
+
+                                isLegalMove
+                                    ? "legal-move-square"
+                                    : "",
+                            ].join(" ")}
+                            style={{
+                                gridColumn:
+                                    visual.fileIndex + 1,
+
+                                gridRow:
+                                    visual.rankIndex + 1,
+                            }}
+                            onClick={() =>
+                                onSquareClick?.(
+                                    square
+                                )
+                            }
+                        >
+                            {showCoordinates && (
+    <span className="square-coordinate">
+        {square}
+    </span>
+)}
+
+{showRotationDebug && (
+    <span className="physical-coordinate">
+        {visual.fileIndex},{visual.rankIndex}
+    </span>
+)}
+
+{piece && (
+    <span className="piece">
+        {getPieceSymbol(piece)}
+    </span>
+)}
                         </div>
                     );
                 })
             )}
-
         </div>
     );
 }
 
-
 /**
  * Converts our internal piece representation into
  * something the browser can display.
- *
- * For Phase 1 we're using Unicode chess characters.
- *
- * Later we can replace this with SVG or image assets
- * without changing our underlying board model.
  */
-function getPieceSymbol(piece: Piece): string {
+function getPieceSymbol(
+    piece: Piece
+): string {
 
     const symbols = {
         white: {
@@ -97,8 +175,9 @@ function getPieceSymbol(piece: Piece): string {
         },
     };
 
-    return symbols[piece.color][piece.type];
+    return symbols[
+        piece.color
+    ][piece.type];
 }
-
 
 export default ChessBoard;

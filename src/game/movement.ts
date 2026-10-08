@@ -1,16 +1,18 @@
 import type {
     Piece,
     Square,
+    Color,
+    Rotation,
 } from "../types";
-
-import{
-    isEnPassantCapture,
-} from "./enPassant"
 
 import {
     coordinatesToSquare,
     squareToCoordinates,
 } from "./coordinates";
+
+import {
+    movePhysicalToSquare,
+} from "./rotation";
 
 interface Direction {
     file: number;
@@ -47,7 +49,8 @@ function getPieceAt(
     pieces: Piece[]
 ): Piece | undefined {
     return pieces.find(
-        (piece) => piece.square === square
+        (piece) =>
+            piece.square === square
     );
 }
 
@@ -56,7 +59,8 @@ function isOccupied(
     pieces: Piece[]
 ): boolean {
     return pieces.some(
-        (piece) => piece.square === square
+        (piece) =>
+            piece.square === square
     );
 }
 
@@ -74,7 +78,9 @@ function getSlidingMoves(
         piece.square
     );
 
-    for (const direction of directions) {
+    for (
+        const direction of directions
+    ) {
         let currentFile =
             fileIndex + direction.file;
 
@@ -102,7 +108,10 @@ function getSlidingMoves(
             if (!targetPiece) {
                 moves.push(square);
             } else {
-                // We can capture an enemy piece.
+                /*
+                 * We can capture an enemy piece,
+                 * but the path ends at that square.
+                 */
                 if (
                     targetPiece.color !==
                     piece.color
@@ -110,7 +119,6 @@ function getSlidingMoves(
                     moves.push(square);
                 }
 
-                // Either way, the path ends here.
                 break;
             }
 
@@ -138,7 +146,9 @@ function getKnightMoves(
         piece.square
     );
 
-    for (const offset of knightOffsets) {
+    for (
+        const offset of knightOffsets
+    ) {
         const targetFile =
             fileIndex + offset.file;
 
@@ -250,93 +260,160 @@ function getKingMoves(
 
 function getPawnMoves(
     piece: Piece,
-    pieces: Piece[]
+    pieces: Piece[],
+    rotation: Rotation
 ): Square[] {
     const moves: Square[] = [];
 
-    const { fileIndex, rankIndex } =
-        squareToCoordinates(piece.square);
+    const {
+        fileIndex,
+        rankIndex,
+    } = squareToCoordinates(
+        piece.square
+    );
 
+    /*
+     * This is the important rotation-aware
+     * part of pawn movement.
+     */
     const direction =
-        piece.color === "white" ? -1 : 1;
+        getPawnDirection(
+            piece.color,
+            rotation
+        );
 
-    const forwardRank = rankIndex + direction;
+    /*
+     * One-square movement.
+     */
+    const oneStepFile =
+        fileIndex + direction.file;
 
-    // One-square forward move
+    const oneStepRank =
+        rankIndex + direction.rank;
+
     if (
-        forwardRank >= 0 &&
-        forwardRank < 8
+        oneStepFile < 0 ||
+        oneStepFile >= 8 ||
+        oneStepRank < 0 ||
+        oneStepRank >= 8
     ) {
-        const forwardSquare =
-            coordinatesToSquare(
-                fileIndex,
-                forwardRank
-            );
+        return moves;
+    }
 
-        if (!isOccupied(forwardSquare, pieces)) {
-            moves.push(forwardSquare);
+    const oneStepSquare =
+        coordinatesToSquare(
+            oneStepFile,
+            oneStepRank
+        );
 
-            // Two-square initial move
-            if (!piece.hasMoved) {
-                const doubleForwardRank =
-                    rankIndex + direction * 2;
+    if (
+        !isOccupied(
+            oneStepSquare,
+            pieces
+        )
+    ) {
+        moves.push(oneStepSquare);
+
+        /*
+         * Two-square movement.
+         *
+         * We use hasMoved rather than assuming
+         * the pawn is on rank 2 or rank 7 because
+         * the board can now rotate.
+         */
+        if (!piece.hasMoved) {
+            const twoStepFile =
+                fileIndex +
+                direction.file * 2;
+
+            const twoStepRank =
+                rankIndex +
+                direction.rank * 2;
+
+            if (
+                twoStepFile >= 0 &&
+                twoStepFile < 8 &&
+                twoStepRank >= 0 &&
+                twoStepRank < 8
+            ) {
+                const twoStepSquare =
+                    coordinatesToSquare(
+                        twoStepFile,
+                        twoStepRank
+                    );
 
                 if (
-                    doubleForwardRank >= 0 &&
-                    doubleForwardRank < 8
+                    !isOccupied(
+                        twoStepSquare,
+                        pieces
+                    )
                 ) {
-                    const doubleForwardSquare =
-                        coordinatesToSquare(
-                            fileIndex,
-                            doubleForwardRank
-                        );
-
-                    if (
-                        !isOccupied(
-                            doubleForwardSquare,
-                            pieces
-                        )
-                    ) {
-                        moves.push(
-                            doubleForwardSquare
-                        );
-                    }
+                    moves.push(
+                        twoStepSquare
+                    );
                 }
             }
         }
     }
 
-    // Diagonal captures
-    for (const fileOffset of [-1, 1]) {
-        const captureFile =
-            fileIndex + fileOffset;
+    /*
+     * Pawn captures.
+     *
+     * These are perpendicular to the pawn's
+     * forward direction.
+     */
+    const captureDirections: Direction[] = [
+        {
+            file: -direction.rank,
+            rank: direction.file,
+        },
+        {
+            file: direction.rank,
+            rank: -direction.file,
+        },
+    ];
+
+    for (
+        const captureDirection
+        of captureDirections
+    ) {
+        const targetFile =
+            fileIndex +
+            direction.file +
+            captureDirection.file;
+
+        const targetRank =
+            rankIndex +
+            direction.rank +
+            captureDirection.rank;
 
         if (
-            captureFile < 0 ||
-            captureFile >= 8 ||
-            forwardRank < 0 ||
-            forwardRank >= 8
+            targetFile < 0 ||
+            targetFile >= 8 ||
+            targetRank < 0 ||
+            targetRank >= 8
         ) {
             continue;
         }
 
-        const captureSquare =
+        const targetSquare =
             coordinatesToSquare(
-                captureFile,
-                forwardRank
+                targetFile,
+                targetRank
             );
 
         const targetPiece =
             getPieceAt(
-                captureSquare,
+                targetSquare,
                 pieces
             );
 
         if (
             targetPiece &&
-            targetPiece.color !== piece.color
+            targetPiece.color !==
+                piece.color
         ) {
-            moves.push(captureSquare);
+            moves.push(targetSquare);
         }
     }
 
@@ -345,7 +422,8 @@ function getPawnMoves(
 
 export function getPseudoLegalMoves(
     piece: Piece,
-    pieces: Piece[]
+    pieces: Piece[],
+    rotation: Rotation
 ): Square[] {
     switch (piece.type) {
         case "rook":
@@ -387,50 +465,49 @@ export function getPseudoLegalMoves(
         case "pawn":
             return getPawnMoves(
                 piece,
-                pieces
+                pieces,
+                rotation
             );
-
-        default:
-            return [];
     }
 }
 
 export function isSquareAttacked(
     square: Square,
-    byColor: "white" | "black",
-    pieces: Piece[]
+    attackingColor: Color,
+    pieces: Piece[],
+    rotation: Rotation
 ): boolean {
-    for (const piece of pieces) {
-        if (piece.color !== byColor) {
-            continue;
-        }
-
-        const attacks =
-            getAttackSquares(
-                piece,
-                pieces
-            );
-
-        if (attacks.includes(square)) {
-            return true;
-        }
-    }
-
-    return false;
+    return pieces
+        .filter(
+            (piece) =>
+                piece.color ===
+                attackingColor
+        )
+        .some(
+            (piece) =>
+                getAttackSquares(
+                    piece,
+                    pieces,
+                    rotation
+                ).includes(square)
+        );
 }
 
 export function getAttackSquares(
     piece: Piece,
-    pieces: Piece[]
+    pieces: Piece[],
+    rotation: Rotation
 ): Square[] {
+    /*
+     * Non-pawns retain their normal attack geometry.
+     */
     if (piece.type !== "pawn") {
         return getPseudoLegalMoves(
             piece,
-            pieces
+            pieces,
+            rotation
         );
     }
-
-    const attacks: Square[] = [];
 
     const {
         fileIndex,
@@ -440,27 +517,47 @@ export function getAttackSquares(
     );
 
     const direction =
-        piece.color === "white"
-            ? -1
-            : 1;
+        getPawnDirection(
+            piece.color,
+            rotation
+        );
 
-    const attackRank =
-        rankIndex + direction;
+    /*
+     * Pawn attacks one square diagonally
+     * relative to its current direction.
+     */
+    const captureDirections: Direction[] = [
+        {
+            file: -direction.rank,
+            rank: direction.file,
+        },
+        {
+            file: direction.rank,
+            rank: -direction.file,
+        },
+    ];
 
-    if (
-        attackRank < 0 ||
-        attackRank >= 8
+    const attacks: Square[] = [];
+
+    for (
+        const captureDirection
+        of captureDirections
     ) {
-        return attacks;
-    }
-
-    for (const fileOffset of [-1, 1]) {
         const attackFile =
-            fileIndex + fileOffset;
+            fileIndex +
+            direction.file +
+            captureDirection.file;
+
+        const attackRank =
+            rankIndex +
+            direction.rank +
+            captureDirection.rank;
 
         if (
             attackFile < 0 ||
-            attackFile >= 8
+            attackFile >= 8 ||
+            attackRank < 0 ||
+            attackRank >= 8
         ) {
             continue;
         }
