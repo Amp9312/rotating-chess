@@ -2,6 +2,8 @@ There's some nonsense about react and typescript below that is likely important 
 
 But to introduce what is going on here - this is my first foray into typescript and exploring how to take apart and rebuild my own chess engine. Hoping to eventually merge this with a friends project as an alternative game mode. Until I get this far, feel free to get node and react all set up and give a whirl yourself. 
 
+Basically every five rounds the board rotates 90 degrees. Chess pieces carry on as if nothing happened. 
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
