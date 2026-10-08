@@ -81,6 +81,17 @@ function App() {
             );
 
         if (moveResult.type === "move") {
+if (moveResult.type === "move") {
+
+    setGameState(
+        moveResult.gameState
+    );
+
+    setSelectedSquare(null);
+
+    return;
+}
+
             setGameState(
                 moveResult.gameState
             );
@@ -158,6 +169,10 @@ return (
         <p>
             Status: {gameState.status}
         </p>
+
+        <p>
+    Legal moves: {legalMoves.join(", ")}
+</p>
 
         <div className="game-info">
             <p>

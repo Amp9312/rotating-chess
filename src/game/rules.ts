@@ -4,6 +4,7 @@ import type {
     GameStatus,
     Piece,
     Square,
+    Rotation,
 } from "../types";
 
 import {
@@ -25,12 +26,14 @@ import {
 } from "./coordinates";
 
 import {
-    getCastlingMoves,
-} from "./castling";
+    getNextRotation,
+    movePhysicalToSquare,
+    squareToPhysical,
+} from "./rotation";
 
 import {
-    getNextRotation,
-} from "./rotation";
+    getCastlingMoves,
+} from "./castling";
 
 export type MoveResult =
     | {
@@ -371,70 +374,45 @@ export function isKingInCheck(
 function getEnPassantMoves(
     piece: Piece,
     gameState: GameState
-): Square[] {
+): Square[]{
+
     if (piece.type !== "pawn") {
         return [];
     }
 
-    const {
-        fileIndex,
-        rankIndex,
-    } = squareToCoordinates(
-        piece.square
-    );
-
-    const direction =
+    const forward =
         piece.color === "white"
             ? -1
             : 1;
 
-    const targetRank =
-        rankIndex + direction;
-
-    if (
-        targetRank < 0 ||
-        targetRank >= 8
-    ) {
-        return [];
-    }
-
     const moves: Square[] = [];
 
-    for (
-        const fileOffset of [-1, 1]
-    ) {
-        const targetFile =
-            fileIndex + fileOffset;
+    for (const fileOffset of [-1, 1]) {
+        const target =
+            movePhysicalToSquare(
+                piece.square,
+                gameState.rotation,
+                fileOffset,
+                forward
+            );
 
-        if (
-            targetFile < 0 ||
-            targetFile >= 8
-        ) {
+        if (!target) {
             continue;
         }
-
-        const targetSquare =
-            coordinatesToSquare(
-                targetFile,
-                targetRank
-            );
 
         if (
             isEnPassantCapture(
                 gameState,
                 piece,
-                targetSquare
+                target
             )
         ) {
-            moves.push(
-                targetSquare
-            );
+            moves.push(target);
         }
     }
 
     return moves;
 }
-
 export function getLegalMoves(
     piece: Piece,
     gameState: GameState
@@ -443,22 +421,23 @@ export function getLegalMoves(
     // 1. Get normal movement options.
     // --------------------------------------------------
 
-    const pseudoLegalMoves =
-        getPseudoLegalMoves(
-            piece,
-            gameState.pieces,
-            gameState.rotation
-        );
+const pseudoLegalMoves =
+    getPseudoLegalMoves(
+        piece,
+        gameState.pieces,
+        gameState.rotation
+    );
 
-    // --------------------------------------------------
-    // 2. Get en-passant options.
-    // --------------------------------------------------
+const enPassantMoves =
+    getEnPassantMoves(
+        piece,
+        gameState
+    );
 
-    const enPassantMoves =
-        getEnPassantMoves(
-            piece,
-            gameState
-        );
+const allMoves = [
+    ...pseudoLegalMoves,
+    ...enPassantMoves,
+];
 
     // --------------------------------------------------
     // 3. Get castling options.
@@ -595,16 +574,15 @@ export function getLegalMoves(
         // does not leave our own king in check.
         // --------------------------------------------------
 
-        if (
-            !isKingInCheck(
-                piece.color,
-                hypotheticalPieces
-            )
-        ) {
-            legalMoves.push(
-                destination
-            );
-        }
+        const kingInCheck = isKingInCheck(
+    piece.color,
+    hypotheticalPieces,
+    gameState.rotation
+);
+
+if (!kingInCheck) {
+    legalMoves.push(destination);
+}
     }
 
     return legalMoves;
@@ -650,7 +628,8 @@ export function getGameStatus(
     const inCheck =
         isKingInCheck(
             playerToMove,
-            gameState.pieces
+            gameState.pieces,
+            gameState.rotation
         );
 
     const canMove =

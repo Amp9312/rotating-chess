@@ -5,8 +5,9 @@ import type {
 } from "../types";
 
 import {
-    squareToCoordinates,
-} from "./coordinates";
+    squareToPhysical,
+    movePhysicalToSquare,
+} from "./rotation";
 
 export function isEnPassantCapture(
     gameState: GameState,
@@ -47,141 +48,160 @@ export function isEnPassantCapture(
      */
     if (
         previousPiece.type !== "pawn" ||
-        previousPiece.color === movingPiece.color
+        previousPiece.color ===
+            movingPiece.color
     ) {
         return false;
     }
 
     /*
-     * Get the logical coordinates of the
-     * previous move.
+     * Convert the previous move into
+     * PHYSICAL coordinates.
      */
-    const previousFrom =
-        squareToCoordinates(
-            gameState.lastMove.from
+    const previousFromPhysical =
+        squareToPhysical(
+            gameState.lastMove.from,
+            gameState.rotation
         );
 
-    const previousTo =
-        squareToCoordinates(
-            gameState.lastMove.to
-        );
-
-    /*
-     * Determine how the previous pawn was
-     * oriented when it made its move.
-     */
-    const previousDirection =
-        getPawnDirection(
-            previousPiece.color,
+    const previousToPhysical =
+        squareToPhysical(
+            gameState.lastMove.to,
             gameState.rotation
         );
 
     /*
-     * A two-square pawn move must move exactly
-     * two squares in its forward direction.
+     * Determine the previous pawn's physical
+     * forward direction.
+     *
+     * White moves toward physical rank 0.
+     * Black moves toward physical rank 7.
      */
-    const fileDifference =
-        previousTo.fileIndex -
-        previousFrom.fileIndex;
+    const forward =
+        previousPiece.color === "white"
+            ? -1
+            : 1;
 
-    const rankDifference =
-        previousTo.rankIndex -
-        previousFrom.rankIndex;
+    /*
+     * Determine how far the previous pawn
+     * actually moved in physical space.
+     */
+    const physicalFileDifference =
+        previousToPhysical.fileIndex -
+        previousFromPhysical.fileIndex;
 
-    const expectedFileDifference =
-        previousDirection.file * 2;
+    const physicalRankDifference =
+        previousToPhysical.rankIndex -
+        previousFromPhysical.rankIndex;
 
-    const expectedRankDifference =
-        previousDirection.rank * 2;
-
+    /*
+     * The previous move must have been
+     * exactly two physical squares forward.
+     */
     if (
-        fileDifference !==
-            expectedFileDifference ||
-        rankDifference !==
-            expectedRankDifference
+        physicalFileDifference !== 0 ||
+        physicalRankDifference !==
+            forward * 2
     ) {
+        console.log(
+            "EN PASSANT FAILED: previous move was not a two-square pawn move"
+        );
+
         return false;
     }
 
     /*
-     * Get the coordinates of the pawn attempting
-     * the en passant capture.
+     * Get the physical positions of the
+     * two pawns.
      */
-    const movingCoordinates =
-        squareToCoordinates(
-            movingPiece.square
+    const movingPhysical =
+        squareToPhysical(
+            movingPiece.square,
+            gameState.rotation
         );
 
-    const destinationCoordinates =
-        squareToCoordinates(to);
+    const previousPawnPhysical =
+        previousToPhysical;
 
     /*
-     * The opposing pawn must currently be
-     * immediately adjacent to the moving pawn.
+     * The pawns must be horizontally
+     * adjacent on the physical board.
      */
     const fileDistance =
         Math.abs(
-            movingCoordinates.fileIndex -
-            previousTo.fileIndex
+            movingPhysical.fileIndex -
+            previousPawnPhysical.fileIndex
         );
 
     const rankDistance =
         Math.abs(
-            movingCoordinates.rankIndex -
-            previousTo.rankIndex
+            movingPhysical.rankIndex -
+            previousPawnPhysical.rankIndex
         );
 
     /*
-     * The pawns must be adjacent along the
-     * axis perpendicular to their movement.
+     * Determine which diagonal direction
+     * leads toward the pawn that just moved.
      */
-    const expectedAdjacentFile =
-        previousDirection.file === 0;
+    const fileDirection =
+        previousPawnPhysical.fileIndex >
+        movingPhysical.fileIndex
+            ? 1
+            : -1;
 
-    if (expectedAdjacentFile) {
-        if (fileDistance !== 1) {
-            return false;
-        }
+    /*
+     * Calculate the physical diagonal
+     * destination for the capturing pawn.
+     */
 
-        if (rankDistance !== 0) {
-            return false;
-        }
-    } else {
-        if (rankDistance !== 1) {
-            return false;
-        }
+    const movingForward =
+    movingPiece.color === "white"
+        ? -1
+        : 1;
 
-        if (fileDistance !== 0) {
-            return false;
-        }
+const expectedDiagonalDestination =
+    movePhysicalToSquare(
+        movingPiece.square,
+        gameState.rotation,
+        fileDirection,
+        movingForward
+    );
+
+
+    /*
+     * The pawns must be horizontally adjacent.
+     */
+    if (
+        fileDistance !== 1 ||
+        rankDistance !== 0
+    ) {
+
+        return false;
     }
 
     /*
-     * The destination must be one forward step
-     * from the moving pawn.
+     * The requested destination must be
+     * the correct physical diagonal square.
      */
-const movingDirection =
-    getPawnDirection(
-        movingPiece.color,
-        gameState.rotation
+    if (
+        expectedDiagonalDestination !== to
+    ) {
+
+        return false;
+    }
+
+    /*
+     * All en-passant conditions have passed.
+     */
+    console.log(
+        "EN PASSANT SUCCESS",
+        {
+            from: movingPiece.square,
+            to,
+            capturedPawn:
+                previousPiece.square,
+        }
     );
 
-const expectedDestinationFile =
-    previousTo.fileIndex +
-    movingDirection.file;
-
-const expectedDestinationRank =
-    previousTo.rankIndex +
-    movingDirection.rank;
-
-if (
-    destinationCoordinates.fileIndex !==
-        expectedDestinationFile ||
-    destinationCoordinates.rankIndex !==
-        expectedDestinationRank
-) {
-    return false;
-}
-
-return true;
+    return true;
 }

@@ -1,6 +1,9 @@
 import type {
+    Color,
     GameState,
+    Piece,
     PromotionPiece,
+    Rotation,
     Square,
 } from "../types";
 
@@ -8,45 +11,36 @@ import {
     squareToCoordinates,
 } from "./coordinates";
 
+import {
+    squareToPhysical,
+} from "./rotation";
+
 
 export function isPromotionSquare(
     square: Square,
-    color: "white" | "black",
-    rotation: 0 | 90 | 180 | 270
+    color: Color,
+    rotation: Rotation
 ): boolean {
-    const {
-        fileIndex,
-        rankIndex,
-    } = squareToCoordinates(square);
-
-    const direction =
-        getPawnDirection(
-            color,
+    const physical =
+        squareToPhysical(
+            square,
             rotation
         );
 
     /*
-     * A pawn promotes when it reaches the
-     * edge it is moving toward.
+     * Physical rankIndex:
+     *
+     * 0 = top of the displayed board
+     * 7 = bottom of the displayed board
+     *
+     * White promotes at the physical top.
+     * Black promotes at the physical bottom.
      */
-
-    if (direction.file === 1) {
-        return fileIndex === 7;
+    if (color === "white") {
+        return physical.rankIndex === 0;
     }
 
-    if (direction.file === -1) {
-        return fileIndex === 0;
-    }
-
-    if (direction.rank === 1) {
-        return rankIndex === 7;
-    }
-
-    if (direction.rank === -1) {
-        return rankIndex === 0;
-    }
-
-    return false;
+    return physical.rankIndex === 7;
 }
 
 export function promotePawn(

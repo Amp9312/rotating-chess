@@ -265,84 +265,68 @@ function getPawnMoves(
 ): Square[] {
     const moves: Square[] = [];
 
-    const {
-        fileIndex,
-        rankIndex,
-    } = squareToCoordinates(
-        piece.square
-    );
+    /*
+     * Pawns move according to the PHYSICAL board.
+     *
+     * White always moves visually upward.
+     * Black always moves visually downward.
+     *
+     * We therefore:
+     *
+     * 1. Convert the logical square to its physical position.
+     * 2. Move in physical space.
+     * 3. Convert the physical destination back
+     *    into a logical square.
+     */
+
+    const forward =
+        piece.color === "white"
+            ? -1
+            : 1;
+
+    const physicalOffsets = [
+        {
+            file: 0,
+            rank: forward,
+        },
+    ];
 
     /*
-     * This is the important rotation-aware
-     * part of pawn movement.
+     * One-square forward movement.
      */
-    const direction =
-        getPawnDirection(
-            piece.color,
-            rotation
-        );
+    for (const offset of physicalOffsets) {
+        const targetSquare =
+            movePhysicalToSquare(
+                piece.square,
+                rotation,
+                offset.file,
+                offset.rank
+            );
 
-    /*
-     * One-square movement.
-     */
-    const oneStepFile =
-        fileIndex + direction.file;
+        if (
+            targetSquare &&
+            !isOccupied(
+                targetSquare,
+                pieces
+            )
+        ) {
+            moves.push(targetSquare);
 
-    const oneStepRank =
-        rankIndex + direction.rank;
-
-    if (
-        oneStepFile < 0 ||
-        oneStepFile >= 8 ||
-        oneStepRank < 0 ||
-        oneStepRank >= 8
-    ) {
-        return moves;
-    }
-
-    const oneStepSquare =
-        coordinatesToSquare(
-            oneStepFile,
-            oneStepRank
-        );
-
-    if (
-        !isOccupied(
-            oneStepSquare,
-            pieces
-        )
-    ) {
-        moves.push(oneStepSquare);
-
-        /*
-         * Two-square movement.
-         *
-         * We use hasMoved rather than assuming
-         * the pawn is on rank 2 or rank 7 because
-         * the board can now rotate.
-         */
-        if (!piece.hasMoved) {
-            const twoStepFile =
-                fileIndex +
-                direction.file * 2;
-
-            const twoStepRank =
-                rankIndex +
-                direction.rank * 2;
-
-            if (
-                twoStepFile >= 0 &&
-                twoStepFile < 8 &&
-                twoStepRank >= 0 &&
-                twoStepRank < 8
-            ) {
+            /*
+             * Two-square movement is available
+             * only before the pawn has moved.
+             */
+            if (!piece.hasMoved) {
                 const twoStepSquare =
-                    coordinatesToSquare(
-                        twoStepFile,
-                        twoStepRank
+                    movePhysicalToSquare(
+                        piece.square,
+                        rotation,
+                        0,
+                        forward * 2
                     );
 
                 if (
+                    twoStepSquare &&
                     !isOccupied(
                         twoStepSquare,
                         pieces
@@ -359,48 +343,34 @@ function getPawnMoves(
     /*
      * Pawn captures.
      *
-     * These are perpendicular to the pawn's
-     * forward direction.
+     * White captures diagonally upward.
+     * Black captures diagonally downward.
      */
-    const captureDirections: Direction[] = [
+    const captureOffsets = [
         {
-            file: -direction.rank,
-            rank: direction.file,
+            file: -1,
+            rank: forward,
         },
         {
-            file: direction.rank,
-            rank: -direction.file,
+            file: 1,
+            rank: forward,
         },
     ];
 
     for (
-        const captureDirection
-        of captureDirections
+        const offset of captureOffsets
     ) {
-        const targetFile =
-            fileIndex +
-            direction.file +
-            captureDirection.file;
+        const targetSquare =
+            movePhysicalToSquare(
+                piece.square,
+                rotation,
+                offset.file,
+                offset.rank
+            );
 
-        const targetRank =
-            rankIndex +
-            direction.rank +
-            captureDirection.rank;
-
-        if (
-            targetFile < 0 ||
-            targetFile >= 8 ||
-            targetRank < 0 ||
-            targetRank >= 8
-        ) {
+        if (!targetSquare) {
             continue;
         }
-
-        const targetSquare =
-            coordinatesToSquare(
-                targetFile,
-                targetRank
-            );
 
         const targetPiece =
             getPieceAt(
@@ -516,58 +486,48 @@ export function getAttackSquares(
         piece.square
     );
 
-    const direction =
-        getPawnDirection(
-            piece.color,
-            rotation
-        );
-
-    /*
-     * Pawn attacks one square diagonally
-     * relative to its current direction.
+        /*
+     * Pawns attack one square diagonally
+     * in their physical forward direction.
+     *
+     * These are attack squares rather than
+     * actual capture moves, so we do not care
+     * whether a piece occupies the destination.
      */
-    const captureDirections: Direction[] = [
+    const forward =
+        piece.color === "white"
+            ? -1
+            : 1;
+
+    const captureOffsets = [
         {
-            file: -direction.rank,
-            rank: direction.file,
+            file: -1,
+            rank: forward,
         },
         {
-            file: direction.rank,
-            rank: -direction.file,
+            file: 1,
+            rank: forward,
         },
     ];
 
     const attacks: Square[] = [];
 
     for (
-        const captureDirection
-        of captureDirections
+        const offset of captureOffsets
     ) {
-        const attackFile =
-            fileIndex +
-            direction.file +
-            captureDirection.file;
+        const attackSquare =
+            movePhysicalToSquare(
+                piece.square,
+                rotation,
+                offset.file,
+                offset.rank
+            );
 
-        const attackRank =
-            rankIndex +
-            direction.rank +
-            captureDirection.rank;
-
-        if (
-            attackFile < 0 ||
-            attackFile >= 8 ||
-            attackRank < 0 ||
-            attackRank >= 8
-        ) {
-            continue;
+        if (attackSquare) {
+            attacks.push(
+                attackSquare
+            );
         }
-
-        attacks.push(
-            coordinatesToSquare(
-                attackFile,
-                attackRank
-            )
-        );
     }
 
     return attacks;
