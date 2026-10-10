@@ -8,10 +8,6 @@ import type {
 } from "../types";
 
 import {
-    squareToCoordinates,
-} from "./coordinates";
-
-import {
     squareToPhysical,
 } from "./rotation";
 
@@ -27,15 +23,6 @@ export function isPromotionSquare(
             rotation
         );
 
-    /*
-     * Physical rankIndex:
-     *
-     * 0 = top of the displayed board
-     * 7 = bottom of the displayed board
-     *
-     * White promotes at the physical top.
-     * Black promotes at the physical bottom.
-     */
     if (color === "white") {
         return physical.rankIndex === 0;
     }
@@ -43,14 +30,15 @@ export function isPromotionSquare(
     return physical.rankIndex === 7;
 }
 
+
 export function promotePawn(
     gameState: GameState,
     square: Square,
     promotionPiece: PromotionPiece
 ): GameState {
-    const updatedPieces =
+    const pieces =
         gameState.pieces.map(
-            (piece) => {
+            (piece: Piece) => {
                 if (
                     piece.square === square &&
                     piece.type === "pawn"
@@ -67,6 +55,6 @@ export function promotePawn(
 
     return {
         ...gameState,
-        pieces: updatedPieces,
+        pieces,
     };
 }

@@ -54,7 +54,8 @@ export function getCastlingMoves(
         isSquareAttacked(
             piece.square,
             opponentColor,
-            gameState.pieces
+            gameState.pieces,
+            gameState.rotation
         )
     ) {
         return [];
@@ -110,12 +111,14 @@ export function getCastlingMoves(
             !isSquareAttacked(
                 fSquare,
                 opponentColor,
-                gameState.pieces
+                gameState.pieces,
+                gameState.rotation
             ) &&
             !isSquareAttacked(
                 gSquare,
                 opponentColor,
-                gameState.pieces
+                gameState.pieces,
+                gameState.rotation
             );
 
         if (
@@ -179,12 +182,14 @@ export function getCastlingMoves(
             !isSquareAttacked(
                 dSquare,
                 opponentColor,
-                gameState.pieces
+                gameState.pieces,
+                gameState.rotation
             ) &&
             !isSquareAttacked(
                 cSquare,
                 opponentColor,
-                gameState.pieces
+                gameState.pieces,
+                gameState.rotation
             );
 
         if (

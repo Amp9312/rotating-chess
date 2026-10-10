@@ -21,14 +21,8 @@ import {
 } from "./enPassant";
 
 import {
-    coordinatesToSquare,
-    squareToCoordinates,
-} from "./coordinates";
-
-import {
     getNextRotation,
     movePhysicalToSquare,
-    squareToPhysical,
 } from "./rotation";
 
 import {
@@ -433,11 +427,6 @@ const enPassantMoves =
         piece,
         gameState
     );
-
-const allMoves = [
-    ...pseudoLegalMoves,
-    ...enPassantMoves,
-];
 
     // --------------------------------------------------
     // 3. Get castling options.

@@ -1,5 +1,4 @@
 import type {
-    Color,
     Rotation,
     Square,
 } from "../types";

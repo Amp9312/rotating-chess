@@ -479,13 +479,6 @@ export function getAttackSquares(
         );
     }
 
-    const {
-        fileIndex,
-        rankIndex,
-    } = squareToCoordinates(
-        piece.square
-    );
-
         /*
      * Pawns attack one square diagonally
      * in their physical forward direction.

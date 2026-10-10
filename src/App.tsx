@@ -79,8 +79,7 @@ function App() {
                 selectedSquare,
                 square
             );
-
-        if (moveResult.type === "move") {
+            
 if (moveResult.type === "move") {
 
     setGameState(
@@ -91,15 +90,6 @@ if (moveResult.type === "move") {
 
     return;
 }
-
-            setGameState(
-                moveResult.gameState
-            );
-
-            setSelectedSquare(null);
-
-            return;
-        }
 
         if (
             moveResult.type === "promotion"
@@ -158,117 +148,118 @@ if (moveResult.type === "move") {
         setPromotionSquare(null);
     }
 
-return (
-    <main>
-        <h1>Rotating Chess</h1>
-
-        <p>
-            Turn: {gameState.turn}
-        </p>
-
-        <p>
-            Status: {gameState.status}
-        </p>
-
-        <p>
-    Legal moves: {legalMoves.join(", ")}
-</p>
-
-        <div className="game-info">
-            <p>
-                Rotation: {gameState.rotation}°
-            </p>
-
-            <p>
-                Completed rounds:
-                {" "}
-                {gameState.completedRounds}
-            </p>
+    return (
+        <main>
+            <h1>Rotating Chess</h1>
 
             <p>
                 Turn: {gameState.turn}
             </p>
-        </div>
 
-        <div className="rotation-debug">
-            <label>
-                <input
-                    type="checkbox"
-                    checked={showRotationDebug}
-                    onChange={(event) =>
-                        setShowRotationDebug(
-                            event.target.checked
-                        )
-                    }
-                />
+            <p>
+                Status: {gameState.status}
+            </p>
 
-                {" "}
-                Show rotation debug
-            </label>
+            <p>
+                Legal moves: {legalMoves.join(", ")}
+            </p>
 
-            <div>
-                <button
-                    onClick={() =>
-                        setGameState(current => ({
-                            ...current,
-                            rotation: 0,
-                        }))
-                    }
-                >
-                    0°
-                </button>
+            <div className="game-info">
+                <p>
+                    Rotation: {gameState.rotation}°
+                </p>
 
-                <button
-                    onClick={() =>
-                        setGameState(current => ({
-                            ...current,
-                            rotation: 90,
-                        }))
-                    }
-                >
-                    90°
-                </button>
+                <p>
+                    Completed rounds:
+                    {" "}
+                    {gameState.completedRounds}
+                </p>
 
-                <button
-                    onClick={() =>
-                        setGameState(current => ({
-                            ...current,
-                            rotation: 180,
-                        }))
-                    }
-                >
-                    180°
-                </button>
-
-                <button
-                    onClick={() =>
-                        setGameState(current => ({
-                            ...current,
-                            rotation: 270,
-                        }))
-                    }
-                >
-                    270°
-                </button>
+                <p>
+                    Turn: {gameState.turn}
+                </p>
             </div>
-        </div>
 
-        <ChessBoard
-            pieces={gameState.pieces}
-            rotation={gameState.rotation}
-            selectedSquare={selectedSquare}
-            legalMoves={legalMoves}
-            onSquareClick={handleSquareClick}
-            showCoordinates={showRotationDebug}
-            showRotationDebug={showRotationDebug}
-        />
+            <div className="rotation-debug">
+                <label>
+                    <input
+                        type="checkbox"
+                        checked={showRotationDebug}
+                        onChange={(event) =>
+                            setShowRotationDebug(
+                                event.target.checked
+                            )
+                        }
+                    />
 
-        {promotionSquare && (
-            <PromotionDialog
-                onSelect={handlePromotion}
+                    {" "}
+                    Show rotation debug
+                </label>
+
+                <div>
+                    <button
+                        onClick={() =>
+                            setGameState(current => ({
+                                ...current,
+                                rotation: 0,
+                            }))
+                        }
+                    >
+                        0°
+                    </button>
+
+                    <button
+                        onClick={() =>
+                            setGameState(current => ({
+                                ...current,
+                                rotation: 90,
+                            }))
+                        }
+                    >
+                        90°
+                    </button>
+
+                    <button
+                        onClick={() =>
+                            setGameState(current => ({
+                                ...current,
+                                rotation: 180,
+                            }))
+                        }
+                    >
+                        180°
+                    </button>
+
+                    <button
+                        onClick={() =>
+                            setGameState(current => ({
+                                ...current,
+                                rotation: 270,
+                            }))
+                        }
+                    >
+                        270°
+                    </button>
+                </div>
+            </div>
+
+            <ChessBoard
+                pieces={gameState.pieces}
+                rotation={gameState.rotation}
+                selectedSquare={selectedSquare}
+                legalMoves={legalMoves}
+                onSquareClick={handleSquareClick}
+                showCoordinates={showRotationDebug}
+                showRotationDebug={showRotationDebug}
             />
-        )}
-    </main>
-);}
+
+            {promotionSquare && (
+                <PromotionDialog
+                    onSelect={handlePromotion}
+                />
+            )}
+        </main>
+    );
+}
 
 export default App;
