@@ -1,0 +1,32 @@
+{
+    "$schema": "./node_modules/wrangler/config-schema.json",
+    "name": "rotating-chess",
+    "main": "./worker/index.ts",
+    "compatibility_date": "2026-10-09",
+
+    "assets": {
+        "directory": "./dist/client",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": [
+            "/api/*"
+        ]
+    },
+
+    "durable_objects": {
+        "bindings": [
+            {
+                "name": "GAME_ROOM",
+                "class_name": "GameRoom"
+            }
+        ]
+    },
+
+    "migrations": [
+        {
+            "tag": "v1",
+            "new_sqlite_classes": [
+                "GameRoom"
+            ]
+        }
+    ]
+}

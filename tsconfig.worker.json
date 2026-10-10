@@ -1,0 +1,25 @@
+{
+    "extends": "./tsconfig.node.json",
+    "compilerOptions": {
+        "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo",
+
+        "target": "ES2022",
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+
+        "allowImportingTsExtensions": false,
+        "verbatimModuleSyntax": true,
+        "strict": true,
+
+        "types": [
+            "./worker-configuration.d.ts"
+        ]
+    },
+    "include": [
+        "worker",
+        "src/game",
+        "src/types.ts",
+        "src/initialGameState.ts",
+        "src/initialPosition.ts"
+    ]
+}
