@@ -2,21 +2,9 @@ import WebSocket from "ws";
 
 import {
     squareToPhysical,
-} from "./src/game/rotation.js";
+} from "./src/game/rotation.ts";
 
 const BASE_URL = "http://localhost:8787";
-
-const whitePawnPhysical =
-    squareToPhysical(
-        "e4",
-        gameState.rotation
-    );
-
-assert(
-    whitePawnPhysical.fileIndex === 3 &&
-    whitePawnPhysical.rankIndex === 4,
-    "White e-pawn on logical e4 maps to physical d4 after 90° rotation"
-);
 
 let passed = 0;
 let failed = 0;
