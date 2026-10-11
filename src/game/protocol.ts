@@ -1,6 +1,7 @@
 import type {
     Color,
     GameState,
+    PlayerRole,
     PromotionPiece,
     Square,
 } from "../types";
@@ -32,7 +33,8 @@ export type ClientMessage =
 export type ServerMessage =
     | {
           type: "authenticated";
-          color: Color;
+          role: PlayerRole;
+          color: Color | null;
           gameState: GameState;
       }
     | {

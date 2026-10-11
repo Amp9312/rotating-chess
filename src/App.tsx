@@ -16,6 +16,10 @@ import {
     joinGame,
 } from "./multiplayer/api";
 
+import type {
+    GameSession,
+} from "./multiplayer/api";
+
 import {
     GameConnection,
 } from "./multiplayer/GameConnection";
@@ -24,6 +28,7 @@ import type {
     Color,
     GameState,
     PromotionPiece,
+    PlayerRole,
     Square,
 } from "./types";
 
@@ -42,6 +47,9 @@ function App() {
 
     const [playerColor, setPlayerColor] =
         useState<Color | null>(null);
+
+    const [playerRole, setPlayerRole] =
+        useState<PlayerRole | null>(null);
 
     const [gameId, setGameId] =
         useState<string | null>(null);
@@ -103,13 +111,9 @@ function App() {
      * --------------------------------------------------
      */
 
-    function connectToGame(
-        session: {
-            gameId: string;
-            playerToken: string;
-            color: Color;
-        }
-    ) {
+function connectToGame(
+    session: GameSession
+) {
         /*
          * Close an existing connection before creating
          * another one.
@@ -125,12 +129,14 @@ function App() {
         const connection =
             new GameConnection(
                 session.gameId,
-                session.playerToken,
+                session.sessionToken,
                 {
                     onAuthenticated: (
+                        role,
                         color,
                         state
                     ) => {
+                        setPlayerRole(role);
                         setPlayerColor(color);
                         setGameState(state);
                         setConnectionStatus(
@@ -296,6 +302,9 @@ function App() {
             return;
         }
 
+if (playerRole !== "player" || !playerColor) {
+    return;
+}
         /*
          * Don't allow interaction until the WebSocket
          * connection is established.
@@ -671,6 +680,7 @@ function App() {
                         showRotationDebug={
                             showRotationDebug
                         }
+                        readOnly={playerRole!=="player"}
                     />
 
                     {promotionSquare && (

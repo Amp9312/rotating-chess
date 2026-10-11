@@ -6,6 +6,9 @@
  */
 export type Color = "white" | "black";
 
+export type PlayerRole =
+    | "player"
+    | "spectator";
 
 /**
  * The six types of chess pieces.

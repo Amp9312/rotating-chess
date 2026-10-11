@@ -1,6 +1,7 @@
 import type {
     Color,
     GameState,
+    PlayerRole,
     PromotionPiece,
     Square,
 } from "../types";
@@ -12,7 +13,8 @@ import type {
 
 export interface GameConnectionHandlers {
     onAuthenticated?: (
-        color: Color,
+        role: PlayerRole,
+        color: Color | null,
         gameState: GameState
     ) => void;
 
@@ -24,6 +26,10 @@ export interface GameConnectionHandlers {
         square: Square,
         color: Color,
         gameState: GameState
+    ) => void;
+
+    onPlayerJoined?: (
+        color: Color
     ) => void;
 
     onError?: (
@@ -182,6 +188,7 @@ export class GameConnection {
         switch (message.type) {
             case "authenticated":
                 this.handlers.onAuthenticated?.(
+                    message.role,
                     message.color,
                     message.gameState
                 );

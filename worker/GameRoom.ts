@@ -1,3 +1,4 @@
+
 import { DurableObject } from "cloudflare:workers";
 
 import {
@@ -11,6 +12,7 @@ import { initialGameState } from "../src/initialGameState";
 import type {
     Color,
     GameState,
+    PlayerRole,
     PromotionPiece,
     Square,
 } from "../src/types";
@@ -20,76 +22,50 @@ import type {
     ServerMessage,
 } from "../src/game/protocol";
 
-
-interface PendingPromotion {
-    square: Square;
-    color: Color;
-}
-
-
 interface RoomRecord {
     gameId: string;
     gameState: GameState;
     whiteToken: string;
-    blackToken: string | null;
-    pendingPromotion: PendingPromotion | null;
+    blackToken: string;
+    spectatorTokens: string[];
+    pendingPromotion: {
+        square: Square;
+        color: Color;
+    } | null;
 }
-
 
 interface ConnectionAttachment {
+    role: PlayerRole;
     color: Color | null;
 }
-
 
 interface CreateRoomRequest {
     gameId: string;
     playerToken: string;
 }
 
-
 interface JoinRoomRequest {
     playerToken: string;
 }
 
-
 const ROOM_STORAGE_KEY = "room";
 
-
 export class GameRoom extends DurableObject<Env> {
-
     private async getRoom(): Promise<RoomRecord | null> {
-
-        const room =
-            await this.ctx.storage.get<RoomRecord>(
-                ROOM_STORAGE_KEY
-            );
+        const room = await this.ctx.storage.get<RoomRecord>(
+            ROOM_STORAGE_KEY
+        );
 
         return room ?? null;
     }
 
-
-    private async saveRoom(
-        room: RoomRecord
-    ): Promise<void> {
-
-        await this.ctx.storage.put(
-            ROOM_STORAGE_KEY,
-            room
-        );
+    private async saveRoom(room: RoomRecord): Promise<void> {
+        await this.ctx.storage.put(ROOM_STORAGE_KEY, room);
     }
 
+    async fetch(request: Request): Promise<Response> {
+        const url = new URL(request.url);
 
-    async fetch(
-        request: Request
-    ): Promise<Response> {
-
-        const url =
-            new URL(request.url);
-
-
-        /*
-         * Internal room creation.
-         */
         if (
             request.method === "POST" &&
             url.pathname === "/internal/create"
@@ -97,10 +73,6 @@ export class GameRoom extends DurableObject<Env> {
             return this.createRoom(request);
         }
 
-
-        /*
-         * Internal room joining.
-         */
         if (
             request.method === "POST" &&
             url.pathname === "/internal/join"
@@ -108,10 +80,6 @@ export class GameRoom extends DurableObject<Env> {
             return this.joinRoom(request);
         }
 
-
-        /*
-         * WebSocket connection.
-         */
         if (
             request.method === "GET" &&
             url.pathname === "/connect"
@@ -119,391 +87,281 @@ export class GameRoom extends DurableObject<Env> {
             return this.connectWebSocket(request);
         }
 
-
-        return new Response(
-            "Not found",
-            {
-                status: 404,
-            }
-        );
+        return new Response("Not found", { status: 404 });
     }
 
+    private async createRoom(request: Request): Promise<Response> {
+        let body: CreateRoomRequest;
 
-    private async createRoom(
-        request: Request
-    ): Promise<Response> {
-
-        const body =
-            await request.json() as CreateRoomRequest;
-
-
-        const existingRoom =
-            await this.getRoom();
-
-
-        if (existingRoom) {
-
+        try {
+            body = await request.json() as CreateRoomRequest;
+        } catch {
             return Response.json(
-                {
-                    error: "Game already exists.",
-                },
-                {
-                    status: 409,
-                }
+                { error: "Invalid request body." },
+                { status: 400 }
             );
         }
 
+        if (
+            typeof body.gameId !== "string" ||
+            typeof body.playerToken !== "string" ||
+            !body.gameId ||
+            !body.playerToken
+        ) {
+            return Response.json(
+                { error: "Missing game ID or player token." },
+                { status: 400 }
+            );
+        }
+
+        const existingRoom = await this.getRoom();
+
+        if (existingRoom) {
+            return Response.json(
+                { error: "Game already exists." },
+                { status: 409 }
+            );
+        }
 
         const room: RoomRecord = {
-
-            gameId:
-                body.gameId,
-
-            gameState:
-                structuredClone(
-                    initialGameState
-                ),
-
-            whiteToken:
-                body.playerToken,
-
-            blackToken:
-                null,
-
-            pendingPromotion:
-                null,
+            gameId: body.gameId,
+            gameState: structuredClone(initialGameState),
+            whiteToken: body.playerToken,
+            blackToken: "",
+            spectatorTokens: [],
+            pendingPromotion: null,
         };
-
 
         await this.saveRoom(room);
 
-
         return Response.json({
             gameId: room.gameId,
-            playerToken: body.playerToken,
+            sessionToken: body.playerToken,
+            role: "player",
             color: "white",
         });
     }
 
+    private async joinRoom(request: Request): Promise<Response> {
+        let body: JoinRoomRequest;
 
-    private async joinRoom(
-        request: Request
-    ): Promise<Response> {
+        try {
+            body = await request.json() as JoinRoomRequest;
+        } catch {
+            return Response.json(
+                { error: "Invalid request body." },
+                { status: 400 }
+            );
+        }
 
-        const body =
-            await request.json() as JoinRoomRequest;
+        if (
+            typeof body.playerToken !== "string" ||
+            !body.playerToken
+        ) {
+            return Response.json(
+                { error: "Missing player token." },
+                { status: 400 }
+            );
+        }
 
-
-        const room =
-            await this.getRoom();
-
+        const room = await this.getRoom();
 
         if (!room) {
-
             return Response.json(
-                {
-                    error: "Game does not exist.",
-                },
-                {
-                    status: 404,
-                }
+                { error: "Game does not exist." },
+                { status: 404 }
             );
         }
 
+        // The second session becomes Black.
+        if (!room.blackToken) {
+            room.blackToken = body.playerToken;
 
-        if (room.blackToken) {
+            await this.saveRoom(room);
 
-            return Response.json(
-                {
-                    error:
-                        "Game already has two players.",
-                },
-                {
-                    status: 409,
-                }
-            );
+            return Response.json({
+                gameId: room.gameId,
+                sessionToken: body.playerToken,
+                role: "player",
+                color: "black",
+            });
         }
 
-
-        room.blackToken =
-            body.playerToken;
-
+        // All subsequent sessions become spectators.
+        room.spectatorTokens.push(body.playerToken);
 
         await this.saveRoom(room);
 
-
-        this.broadcast({
-            type: "player_joined",
-            color: "black",
-        });
-
-
         return Response.json({
             gameId: room.gameId,
-            playerToken: body.playerToken,
-            color: "black",
+            sessionToken: body.playerToken,
+            role: "spectator",
+            color: null,
         });
     }
-
 
     private async connectWebSocket(
         request: Request
     ): Promise<Response> {
-
         if (
-            request.headers
-                .get("Upgrade")
-                ?.toLowerCase() !== "websocket"
+            request.headers.get("Upgrade")?.toLowerCase() !==
+            "websocket"
         ) {
-
             return new Response(
                 "Expected WebSocket upgrade.",
-                {
-                    status: 426,
-                }
+                { status: 426 }
             );
         }
 
-
-        const room =
-            await this.getRoom();
-
+        const room = await this.getRoom();
 
         if (!room) {
-
             return Response.json(
-                {
-                    error:
-                        "Game does not exist.",
-                },
-                {
-                    status: 404,
-                }
+                { error: "Game does not exist." },
+                { status: 404 }
             );
         }
 
-
-        const pair =
-            new WebSocketPair();
-
-
-        const client =
-            pair[0];
-
-        const server =
-            pair[1];
-
+        const pair = new WebSocketPair();
+        const client = pair[0];
+        const server = pair[1];
 
         this.ctx.acceptWebSocket(server);
 
-
+        // No player identity is assigned until authentication succeeds.
         server.serializeAttachment({
+            role: "spectator",
             color: null,
         } satisfies ConnectionAttachment);
 
-
-        return new Response(
-            null,
-            {
-                status: 101,
-                webSocket: client,
-            }
-        );
+        return new Response(null, {
+            status: 101,
+            webSocket: client,
+        });
     }
-
 
     webSocketMessage(
         ws: WebSocket,
         message: string | ArrayBuffer
     ): void {
-
-        void this.handleWebSocketMessage(
-            ws,
-            message
-        );
+        void this.handleWebSocketMessage(ws, message);
     }
-
 
     private async handleWebSocketMessage(
         ws: WebSocket,
         message: string | ArrayBuffer
     ): Promise<void> {
-
-        /*
-         * We currently only accept JSON text messages.
-         */
-        if (
-            typeof message !== "string"
-        ) {
-
+        if (typeof message !== "string") {
             this.sendError(
                 ws,
                 "Binary WebSocket messages are not supported."
             );
-
             return;
         }
-
 
         let parsed: unknown;
 
-
         try {
-
-            parsed =
-                JSON.parse(message);
-
+            parsed = JSON.parse(message);
         } catch {
-
-            this.sendError(
-                ws,
-                "Invalid JSON message."
-            );
-
+            this.sendError(ws, "Invalid JSON message.");
             return;
         }
 
-
-        if (
-            !this.isClientMessage(parsed)
-        ) {
-
-            this.sendError(
-                ws,
-                "Invalid game message."
-            );
-
+        if (!this.isClientMessage(parsed)) {
+            this.sendError(ws, "Invalid game message.");
             return;
         }
 
-
-        /*
-         * Authentication is handled before
-         * any other game action.
-         */
-        if (
-            parsed.type === "authenticate"
-        ) {
-
-            await this.authenticate(
-                ws,
-                parsed.token
-            );
-
+        // Authentication must happen before any game action.
+        if (parsed.type === "authenticate") {
+            await this.authenticate(ws, parsed.token);
             return;
         }
 
+        const attachment =
+            ws.deserializeAttachment() as
+                ConnectionAttachment | null;
 
-const attachment = ws.deserializeAttachment() as
-    ConnectionAttachment | null;
-
-
-        if (
-            !attachment?.color
-        ) {
-
-            this.sendError(
-                ws,
-                "You must authenticate first."
-            );
-
+        if (!attachment) {
+            this.sendError(ws, "You must authenticate first.");
             return;
         }
 
+        // Enforce spectator restrictions on the server.
+        if (attachment.role !== "player") {
+            this.sendError(ws, "Spectators cannot make moves.");
+            return;
+        }
 
-        if (
-            parsed.type === "move"
-        ) {
+        if (!attachment.color) {
+            this.sendError(ws, "You must authenticate first.");
+            return;
+        }
 
+        if (parsed.type === "move") {
             await this.handleMove(
                 ws,
                 attachment.color,
                 parsed.from,
                 parsed.to
             );
-
             return;
         }
 
-
-        if (
-            parsed.type === "promote"
-        ) {
-
+        if (parsed.type === "promote") {
             await this.handlePromotion(
                 ws,
                 attachment.color,
                 parsed.piece
             );
-
-            return;
         }
     }
-
 
     private async authenticate(
         ws: WebSocket,
         token: string
     ): Promise<void> {
-
-        const room =
-            await this.getRoom();
-
+        const room = await this.getRoom();
 
         if (!room) {
-
-            this.sendError(
-                ws,
-                "Game does not exist."
-            );
-
+            this.sendError(ws, "Game does not exist.");
             return;
         }
 
+        let role: PlayerRole;
+        let color: Color | null;
 
-        let color: Color | null =
-            null;
-
-
-        if (
-            token === room.whiteToken
-        ) {
-
+        if (token === room.whiteToken) {
+            role = "player";
             color = "white";
-
         } else if (
             room.blackToken &&
             token === room.blackToken
         ) {
-
+            role = "player";
             color = "black";
-        }
-
-
-        if (!color) {
-
-            this.sendError(
-                ws,
-                "Invalid player token."
-            );
-
+        } else if (room.spectatorTokens.includes(token)) {
+            role = "spectator";
+            color = null;
+        } else {
+            this.sendError(ws, "Invalid authentication token.");
             return;
         }
 
-
+        // Store the actual identity, including null for spectators.
         ws.serializeAttachment({
+            role,
             color,
         } satisfies ConnectionAttachment);
 
-
         this.send(ws, {
             type: "authenticated",
+            role,
             color,
-            gameState:
-                room.gameState,
+            gameState: room.gameState,
         });
     }
-
 
     private async handleMove(
         ws: WebSocket,
@@ -511,255 +369,127 @@ const attachment = ws.deserializeAttachment() as
         from: Square,
         to: Square
     ): Promise<void> {
-
-        const room =
-            await this.getRoom();
-
+        const room = await this.getRoom();
 
         if (!room) {
-
-            this.sendError(
-                ws,
-                "Game does not exist."
-            );
-
+            this.sendError(ws, "Game does not exist.");
             return;
         }
 
+        if (room.gameState.turn !== color) {
+            this.sendError(ws, "It is not your turn.");
+            return;
+        }
 
-        /*
-         * The server is authoritative.
-         * A player can only move on their turn.
-         */
         if (
-            room.gameState.turn !== color
+            room.gameState.status === "checkmate" ||
+            room.gameState.status === "stalemate" ||
+            room.gameState.status === "draw"
         ) {
-
-            this.sendError(
-                ws,
-                "It is not your turn."
-            );
-
+            this.sendError(ws, "The game has ended.");
             return;
         }
 
-
-        /*
-         * Do not allow moves after
-         * the game has ended.
-         */
-        if (
-            room.gameState.status ===
-                "checkmate" ||
-            room.gameState.status ===
-                "stalemate" ||
-            room.gameState.status ===
-                "draw"
-        ) {
-
-            this.sendError(
-                ws,
-                "The game has ended."
-            );
-
-            return;
-        }
         if (room.pendingPromotion) {
-    this.sendError(
-        ws,
-        "Finish pawn promotion first."
-    );
-    return;
-}
-
-        /*
-         * Use the existing chess engine.
-         *
-         * The engine's MoveResult is:
-         *
-         * invalid
-         * move
-         * promotion
-         */
-        const result =
-            makeMove(
-                room.gameState,
-                from,
-                to
-            );
-
-
-        /*
-         * Illegal move.
-         */
-        if (
-            result.type === "invalid"
-        ) {
-
             this.sendError(
                 ws,
-                "Illegal move."
+                "Finish pawn promotion first."
             );
-
             return;
         }
 
+        const result = makeMove(
+            room.gameState,
+            from,
+            to
+        );
 
-        /*
-         * Both successful result types
-         * contain the resulting GameState.
-         */
-        room.gameState =
-            result.gameState;
+        if (result.type === "invalid") {
+            this.sendError(ws, "Illegal move.");
+            return;
+        }
 
+        room.gameState = result.gameState;
 
-        /*
-         * Promotion requires another
-         * client action before the move
-         * is considered completely resolved.
-         */
-        if (
-            result.type === "promotion"
-        ) {
-
+        if (result.type === "promotion") {
             room.pendingPromotion = {
-                square:
-                    result.square,
-
+                square: result.square,
                 color,
             };
 
-
             await this.saveRoom(room);
 
-
             this.broadcast({
-                type:
-                    "promotion_required",
-
-                square:
-                    result.square,
-
+                type: "promotion_required",
+                square: result.square,
                 color,
-
-                gameState:
-                    room.gameState,
+                gameState: room.gameState,
             });
-
 
             return;
         }
 
-
-        /*
-         * Normal move.
-         */
         room.gameState = {
             ...room.gameState,
-
-            status:
-                getGameStatus(
-                    room.gameState
-                ),
+            status: getGameStatus(room.gameState),
         };
-
 
         await this.saveRoom(room);
 
-
         this.broadcast({
-            type:
-                "game_state",
-
-            gameState:
-                room.gameState,
+            type: "game_state",
+            gameState: room.gameState,
         });
     }
-
 
     private async handlePromotion(
         ws: WebSocket,
         color: Color,
-        promotionPiece: PromotionPiece
+        piece: PromotionPiece
     ): Promise<void> {
-
-        const room =
-            await this.getRoom();
-
+        const room = await this.getRoom();
 
         if (!room) {
-
-            this.sendError(
-                ws,
-                "Game does not exist."
-            );
-
+            this.sendError(ws, "Game does not exist.");
             return;
         }
 
-
-        const pending =
-            room.pendingPromotion;
-
-
-        if (!pending) {
-
+        if (!room.pendingPromotion) {
             this.sendError(
                 ws,
                 "No promotion is currently pending."
             );
-
             return;
         }
 
-
-        if (
-            pending.color !== color
-        ) {
-
+        if (room.pendingPromotion.color !== color) {
             this.sendError(
                 ws,
-                "You cannot choose this promotion."
+                "You cannot complete this promotion."
             );
-
             return;
         }
 
-
-        room.gameState =
-            promotePawn(
-                room.gameState,
-                pending.square,
-                promotionPiece
-            );
-
+        room.gameState = promotePawn(
+            room.gameState,
+            room.pendingPromotion.square,
+            piece
+        );
 
         room.gameState = {
             ...room.gameState,
-
-            status:
-                getGameStatus(
-                    room.gameState
-                ),
+            status: getGameStatus(room.gameState),
         };
 
-
-        room.pendingPromotion =
-            null;
-
+        room.pendingPromotion = null;
 
         await this.saveRoom(room);
 
-
         this.broadcast({
-            type:
-                "game_state",
-
-            gameState:
-                room.gameState,
+            type: "game_state",
+            gameState: room.gameState,
         });
     }
-
 
     webSocketClose(
         ws: WebSocket,
@@ -767,129 +497,74 @@ const attachment = ws.deserializeAttachment() as
         reason: string,
         wasClean: boolean
     ): void {
-
-        /*
-         * The Durable Object manages
-         * the WebSocket lifecycle.
-         *
-         * These values are intentionally
-         * unused for now.
-         */
+        // Connection cleanup/reconnection will be implemented separately.
         void ws;
         void code;
         void reason;
         void wasClean;
     }
 
+    private broadcast(message: ServerMessage): void {
+        const encoded = JSON.stringify(message);
 
-    private broadcast(
-        message: ServerMessage
-    ): void {
-
-        const encoded =
-            JSON.stringify(message);
-
-
-        for (
-            const ws of
-                this.ctx.getWebSockets()
-        ) {
-
+        for (const ws of this.ctx.getWebSockets()) {
             try {
-
                 ws.send(encoded);
-
             } catch {
-
-                /*
-                 * Ignore sockets that have
-                 * already disconnected.
-                 */
+                // Ignore sockets that have already disconnected.
             }
         }
     }
-
 
     private send(
         ws: WebSocket,
         message: ServerMessage
     ): void {
-
-        ws.send(
-            JSON.stringify(message)
-        );
+        ws.send(JSON.stringify(message));
     }
-
 
     private sendError(
         ws: WebSocket,
         message: string
     ): void {
-
         this.send(ws, {
             type: "error",
             message,
         });
     }
 
-
     private isClientMessage(
         value: unknown
     ): value is ClientMessage {
-
         if (
             typeof value !== "object" ||
             value === null ||
             !("type" in value)
         ) {
-
             return false;
         }
 
-
-        const message =
-            value as Record<
-                string,
-                unknown
-            >;
-
+        const message = value as Record<string, unknown>;
 
         switch (message.type) {
-
             case "authenticate":
-
-                return (
-                    typeof message.token ===
-                    "string"
-                );
-
+                return typeof message.token === "string";
 
             case "move":
-
                 return (
-                    typeof message.from ===
-                        "string" &&
-                    typeof message.to ===
-                        "string"
+                    typeof message.from === "string" &&
+                    typeof message.to === "string"
                 );
-
 
             case "promote":
-
                 return (
-                    message.piece ===
-                        "queen" ||
-                    message.piece ===
-                        "rook" ||
-                    message.piece ===
-                        "bishop" ||
-                    message.piece ===
-                        "knight"
+                    message.piece === "queen" ||
+                    message.piece === "rook" ||
+                    message.piece === "bishop" ||
+                    message.piece === "knight"
                 );
 
-
             default:
-
                 return false;
         }
     }

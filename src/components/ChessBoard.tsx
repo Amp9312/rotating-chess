@@ -20,6 +20,7 @@ interface ChessBoardProps {
     pieces: Piece[];
     selectedSquare?: Square | null;
     legalMoves?: Square[];
+    readOnly?: boolean;
     rotation?: Rotation;
     onSquareClick?: (
         square: Square
@@ -36,6 +37,7 @@ export function ChessBoard({
     rotation = 0,
     showCoordinates = false,
     showRotationDebug = false,
+    readOnly = false, 
 }: ChessBoardProps) {
 
     return (
@@ -116,11 +118,10 @@ export function ChessBoard({
                                 gridRow:
                                     visual.rankIndex + 1,
                             }}
-                            onClick={() =>
-                                onSquareClick?.(
-                                    square
-                                )
-                            }
+onClick={() => {
+    if (readOnly) return;
+    onSquareClick?.(square);
+}}
                         >
                             {showCoordinates && (
     <span className="square-coordinate">

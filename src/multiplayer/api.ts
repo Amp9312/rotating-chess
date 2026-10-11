@@ -1,9 +1,13 @@
-import type { Color } from "../types";
+import type {
+    Color,
+    PlayerRole,
+} from "../types";
 
 export interface GameSession {
     gameId: string;
-    playerToken: string;
-    color: Color;
+    sessionToken: string;
+    role: PlayerRole;
+    color: Color | null;
 }
 
 const API_BASE = "";
