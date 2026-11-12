@@ -12,6 +12,34 @@ export interface GameSession {
 
 const API_BASE = "";
 
+const SESSION_KEY = "rotating-chess-session";
+
+export function saveGameSession(
+    session: GameSession
+): void {
+    sessionStorage.setItem(
+        SESSION_KEY,
+        JSON.stringify(session)
+    );
+}
+
+export function loadGameSession(): GameSession | null {
+    const stored = sessionStorage.getItem(SESSION_KEY);
+
+    if (!stored) return null;
+
+    try {
+        return JSON.parse(stored) as GameSession;
+    } catch {
+        sessionStorage.removeItem(SESSION_KEY);
+        return null;
+    }
+}
+
+export function clearGameSession(): void {
+    sessionStorage.removeItem(SESSION_KEY);
+}
+
 async function request<T>(
     url: string,
     options?: RequestInit

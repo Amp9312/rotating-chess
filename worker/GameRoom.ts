@@ -37,6 +37,7 @@ interface RoomRecord {
 interface ConnectionAttachment {
     role: PlayerRole;
     color: Color | null;
+    token: string | null;
 }
 
 interface CreateRoomRequest {
@@ -153,7 +154,7 @@ export class GameRoom extends DurableObject<Env> {
                 { status: 400 }
             );
         }
-
+ 
         if (
             typeof body.playerToken !== "string" ||
             !body.playerToken
@@ -232,6 +233,7 @@ export class GameRoom extends DurableObject<Env> {
         server.serializeAttachment({
             role: "spectator",
             color: null,
+            token: null,
         } satisfies ConnectionAttachment);
 
         return new Response(null, {
@@ -318,50 +320,83 @@ export class GameRoom extends DurableObject<Env> {
         }
     }
 
-    private async authenticate(
-        ws: WebSocket,
-        token: string
-    ): Promise<void> {
-        const room = await this.getRoom();
 
-        if (!room) {
-            this.sendError(ws, "Game does not exist.");
-            return;
+private async authenticate(
+    ws: WebSocket,
+    token: string
+): Promise<void> {
+    const room = await this.getRoom();
+
+    if (!room) {
+        this.sendError(ws, "Game does not exist.");
+        return;
+    }
+
+    let role: PlayerRole;
+    let color: Color | null;
+
+    if (token === room.whiteToken) {
+        role = "player";
+        color = "white";
+    } else if (
+        room.blackToken &&
+        token === room.blackToken
+    ) {
+        role = "player";
+        color = "black";
+    } else if (room.spectatorTokens.includes(token)) {
+        role = "spectator";
+        color = null;
+    } else {
+        this.sendError(
+            ws,
+            "Invalid authentication token."
+        );
+        ws.close(4003, "Invalid authentication token");
+        return;
+    }
+
+    // Close any older connection using this same session.
+    // Do not remove the session token or the player's seat.
+    for (const other of this.ctx.getWebSockets()) {
+        if (other === ws) continue;
+
+        const attachment =
+            other.deserializeAttachment() as
+                ConnectionAttachment | null;
+
+        if (attachment?.token === token) {
+            other.close(4001, "Session reconnected elsewhere");
         }
+    }
 
-        let role: PlayerRole;
-        let color: Color | null;
+    // Associate this connection with the existing session.
+    ws.serializeAttachment({
+        role,
+        color,
+        token,
+    } satisfies ConnectionAttachment);
 
-        if (token === room.whiteToken) {
-            role = "player";
-            color = "white";
-        } else if (
-            room.blackToken &&
-            token === room.blackToken
-        ) {
-            role = "player";
-            color = "black";
-        } else if (room.spectatorTokens.includes(token)) {
-            role = "spectator";
-            color = null;
-        } else {
-            this.sendError(ws, "Invalid authentication token.");
-            return;
-        }
+    // Send the latest authoritative game state.
+    this.send(ws, {
+        type: "authenticated",
+        role,
+        color,
+        gameState: room.gameState,
+    });
 
-        // Store the actual identity, including null for spectators.
-        ws.serializeAttachment({
-            role,
-            color,
-        } satisfies ConnectionAttachment);
-
+    // Restore a promotion prompt if the player disconnected
+    // after moving a pawn but before choosing a piece.
+    if (room.pendingPromotion) {
         this.send(ws, {
-            type: "authenticated",
-            role,
-            color,
+            type: "promotion_required",
+            square: room.pendingPromotion.square,
+            color: room.pendingPromotion.color,
             gameState: room.gameState,
         });
     }
+}
+
 
     private async handleMove(
         ws: WebSocket,
@@ -491,18 +526,24 @@ export class GameRoom extends DurableObject<Env> {
         });
     }
 
-    webSocketClose(
-        ws: WebSocket,
-        code: number,
-        reason: string,
-        wasClean: boolean
-    ): void {
-        // Connection cleanup/reconnection will be implemented separately.
-        void ws;
-        void code;
-        void reason;
-        void wasClean;
-    }
+webSocketClose(
+    ws: WebSocket,
+    code: number,
+    reason: string,
+    wasClean: boolean
+): void {
+    /*
+     * The Durable Object manages
+     * the WebSocket lifecycle.
+     *
+     * These values are intentionally
+     * unused for now.
+     */
+    void ws;
+    void code;
+    void reason;
+    void wasClean;
+}
 
     private broadcast(message: ServerMessage): void {
         const encoded = JSON.stringify(message);

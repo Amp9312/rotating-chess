@@ -1,4 +1,5 @@
 import {
+    useCallback,
     useEffect,
     useRef,
     useState,
@@ -14,6 +15,9 @@ import {
 import {
     createGame,
     joinGame,
+    loadGameSession,
+    saveGameSession,
+    clearGameSession,
 } from "./multiplayer/api";
 
 import type {
@@ -34,7 +38,6 @@ import type {
 
 import "./App.css";
 
-
 function App() {
     /*
      * --------------------------------------------------
@@ -54,12 +57,13 @@ function App() {
     const [gameId, setGameId] =
         useState<string | null>(null);
 
-    const [connectionStatus, setConnectionStatus] =
-        useState<
-            "disconnected" |
-            "connecting" |
-            "connected"
-        >("disconnected");
+const [connectionStatus, setConnectionStatus] =
+    useState<
+        "disconnected" |
+        "connecting" |
+        "connected" |
+        "reconnecting"
+    >("disconnected");
 
     const [connectionError, setConnectionError] =
         useState<string | null>(null);
@@ -91,33 +95,22 @@ function App() {
     const [showRotationDebug, setShowRotationDebug] =
         useState(false);
 
-
-    /*
-     * --------------------------------------------------
-     * Cleanup WebSocket when App unmounts
-     * --------------------------------------------------
-     */
-
-    useEffect(() => {
-        return () => {
-            connectionRef.current?.close();
-        };
-    }, []);
-
-
     /*
      * --------------------------------------------------
      * Connect to a game
      * --------------------------------------------------
      */
 
-function connectToGame(
+const connectToGame = useCallback((
     session: GameSession
-) {
+) => {
+    saveGameSession(session);
         /*
          * Close an existing connection before creating
          * another one.
          */
+        setPromotionSquare(null);
+setSelectedSquare(null);
 
         connectionRef.current?.close();
 
@@ -188,6 +181,10 @@ function connectToGame(
                         );
                     },
 
+                    onConnectionStatus: (status) => {
+    setConnectionStatus(status);
+},
+
                     onClose: () => {
                         setConnectionStatus(
                             "disconnected"
@@ -200,7 +197,26 @@ function connectToGame(
             connection;
 
         connection.connect();
+    },[]);
+
+    /*
+     * --------------------------------------------------
+     * Cleanup WebSocket when App unmounts
+     * --------------------------------------------------
+     */
+
+useEffect(() => {
+    const savedSession = loadGameSession();
+
+    if (savedSession) {
+        connectToGame(savedSession);
     }
+
+    return () => {
+        connectionRef.current?.close();
+    };
+}, [connectToGame]);
+
 
 
     /*
@@ -432,6 +448,22 @@ if (playerRole !== "player" || !playerColor) {
      * --------------------------------------------------
      */
 
+function handleLeaveGame() {
+    connectionRef.current?.close();
+    connectionRef.current = null;
+
+    clearGameSession();
+
+    setGameState(null);
+    setGameId(null);
+    setPlayerColor(null);
+    setPlayerRole(null);
+    setSelectedSquare(null);
+    setPromotionSquare(null);
+    setConnectionError(null);
+    setConnectionStatus("disconnected");
+}
+
     function handlePromotion(
         promotionPiece: PromotionPiece
     ) {
@@ -472,29 +504,27 @@ if (playerRole !== "player" || !playerColor) {
                 Rotating Chess
             </h1>
 
-            {!gameState && (
-                <section>
-                    <p>
-                        No game connected.
-                    </p>
+{!gameState && !gameId && (
+    <section>
+        <p>
+            No game connected.
+        </p>
 
-                    <button
-                        onClick={
-                            handleCreateGame
-                        }
-                    >
-                        Create Game
-                    </button>
+        <button onClick={handleCreateGame}>
+            Create Game
+        </button>
 
-                    <button
-                        onClick={
-                            handleJoinGame
-                        }
-                    >
-                        Join Game
-                    </button>
-                </section>
-            )}
+        <button onClick={handleJoinGame}>
+            Join Game
+        </button>
+    </section>
+)}
+
+{gameId && !gameState && (
+    <p>
+        Reconnecting to game {gameId}...
+    </p>
+)}
 
             {gameId && (
                 <p>
@@ -504,6 +534,12 @@ if (playerRole !== "player" || !playerColor) {
                     </strong>
                 </p>
             )}
+
+            {gameId && (
+    <button onClick={handleLeaveGame}>
+        Leave Game
+    </button>
+)}
 
             {playerColor && (
                 <p>
@@ -680,7 +716,10 @@ if (playerRole !== "player" || !playerColor) {
                         showRotationDebug={
                             showRotationDebug
                         }
-                        readOnly={playerRole!=="player"}
+                        readOnly={
+    playerRole !== "player" ||
+    connectionStatus !== "connected"
+}
                     />
 
                     {promotionSquare && (
