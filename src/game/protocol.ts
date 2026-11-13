@@ -25,6 +25,18 @@ export type ClientMessage =
     | {
           type: "promote";
           piece: PromotionPiece;
+      }
+    | {
+          type: "claim_draw";
+      }
+    | {
+          type: "offer_draw";
+      }
+    | {
+          type: "accept_draw";
+      }
+    | {
+          type: "decline_draw";
       };
 
 /**

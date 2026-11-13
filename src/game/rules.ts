@@ -29,6 +29,13 @@ import {
     getCastlingMoves,
 } from "./castling";
 
+import {
+    recordPosition,
+    isFivefoldRepetition,
+    isInsufficientMaterial,
+    isSeventyFiveMoveDraw,
+} from "./draw";
+
 export type MoveResult =
     | {
         type: "invalid";
@@ -75,6 +82,7 @@ export function isValidMove(
 }
 
 
+
 export function makeMove(
     gameState: GameState,
     from: Square,
@@ -94,8 +102,7 @@ export function makeMove(
      */
     const movingPiece =
         gameState.pieces.find(
-            (piece) =>
-                piece.square === from
+            piece => piece.square === from
         );
 
     if (!movingPiece) {
@@ -105,8 +112,7 @@ export function makeMove(
     }
 
     /*
-     * Determine whether this move is
-     * an en passant capture.
+     * Determine whether this move is an en passant capture.
      */
     const isEnPassant =
         isEnPassantCapture(
@@ -115,23 +121,13 @@ export function makeMove(
             to
         );
 
-    /*
-     * If this is en passant, the captured
-     * pawn is not on the destination square.
-     *
-     * lastMove.to tells us where that pawn is.
-     */
     const enPassantCapturedSquare =
-        isEnPassant &&
-        gameState.lastMove
+        isEnPassant && gameState.lastMove
             ? gameState.lastMove.to
             : null;
 
     /*
      * Determine whether this move is castling.
-     *
-     * If it is, this tells us where the rook
-     * needs to move.
      */
     const castlingRookMove =
         getCastlingRookMove(
@@ -140,52 +136,53 @@ export function makeMove(
         );
 
     /*
+     * Determine whether this move captures a piece.
+     *
+     * En passant is handled separately because
+     * the captured pawn is not on the destination square.
+     */
+    const isCapture =
+        gameState.pieces.some(
+            piece =>
+                piece.square === to &&
+                piece.color !== movingPiece.color
+        ) || Boolean(enPassantCapturedSquare);
+
+    /*
+     * Update the half-move clock.
+     *
+     * Pawn moves and captures reset the clock.
+     * All other moves increment it.
+     */
+    const nextHalfMoveClock =
+        movingPiece.type === "pawn" || isCapture
+            ? 0
+            : gameState.halfMoveClock + 1;
+
+    /*
      * Move the pieces.
-     *
-     * This handles:
-     *
-     * - normal movement
-     * - normal captures
-     * - en passant captures
-     * - castling rook movement
      */
     const updatedPieces =
         gameState.pieces
-            .filter((piece) => {
-                /*
-                 * Normal capture:
-                 * remove whatever occupies the
-                 * destination square.
-                 */
-                if (
-                    piece.square === to
-                ) {
+            .filter(piece => {
+                // Remove a normally captured piece.
+                if (piece.square === to) {
                     return false;
                 }
 
-                /*
-                 * En passant capture:
-                 * remove the pawn being captured,
-                 * which is not on the destination square.
-                 */
+                // Remove an en passant captured pawn.
                 if (
                     enPassantCapturedSquare &&
-                    piece.square ===
-                        enPassantCapturedSquare
+                    piece.square === enPassantCapturedSquare
                 ) {
                     return false;
                 }
 
                 return true;
             })
-            .map((piece) => {
-                /*
-                 * Move the piece that initiated
-                 * the move.
-                 */
-                if (
-                    piece.square === from
-                ) {
+            .map(piece => {
+                // Move the selected piece.
+                if (piece.square === from) {
                     return {
                         ...piece,
                         square: to,
@@ -193,19 +190,14 @@ export function makeMove(
                     };
                 }
 
-                /*
-                 * If this is castling, move the rook
-                 * to its new square as well.
-                 */
+                // Move the rook if castling.
                 if (
                     castlingRookMove &&
-                    piece.square ===
-                        castlingRookMove.from
+                    piece.square === castlingRookMove.from
                 ) {
                     return {
                         ...piece,
-                        square:
-                            castlingRookMove.to,
+                        square: castlingRookMove.to,
                         hasMoved: true,
                     };
                 }
@@ -222,46 +214,27 @@ export function makeMove(
             : "white";
 
     /*
-     * A round is completed whenever Black
-     * finishes a move.
-     *
-     * White moves → Black moves
-     *                  ↑
-     *             round completed
+     * A round completes whenever Black finishes a move.
      */
     const roundCompleted =
         gameState.turn === "black";
 
-    /*
-     * Increase the completed-round counter
-     * only when Black has just moved.
-     */
     const nextCompletedRounds =
         roundCompleted
             ? gameState.completedRounds + 1
             : gameState.completedRounds;
 
     /*
-     * Rotate the board after every fifth
-     * completed round.
-     *
-     * Example:
-     *
-     * 5 rounds  → 90°
-     * 10 rounds → 180°
-     * 15 rounds → 270°
-     * 20 rounds → 0°
+     * Rotate the board after every fifth completed round.
      */
     const nextRotation =
         roundCompleted &&
         nextCompletedRounds % 5 === 0
-            ? getNextRotation(
-                gameState.rotation
-            )
+            ? getNextRotation(gameState.rotation)
             : gameState.rotation;
 
     /*
-     * Build the new game state.
+     * Construct the new game state.
      */
     const newGameState: GameState = {
         ...gameState,
@@ -270,28 +243,27 @@ export function makeMove(
 
         turn: nextTurn,
 
-        completedRounds:
-            nextCompletedRounds,
+        completedRounds: nextCompletedRounds,
 
-        rotation:
-            nextRotation,
+        rotation: nextRotation,
+
+        halfMoveClock: nextHalfMoveClock,
 
         lastMove: {
             pieceId: movingPiece.id,
             from,
             to,
         },
+
+        // A new move invalidates any outstanding draw offer.
+        drawOffer: null,
     };
 
     /*
-     * Check whether the moving pawn has
-     * reached the promotion edge.
+     * Check whether the pawn has reached its promotion edge.
      *
-     * Notice that we pass the CURRENT rotation.
-     *
-     * At this point the move itself occurred under
-     * the old orientation. The rotation changes only
-     * after the completed round.
+     * Do not record this position yet. The promotion
+     * choice has not been finalized.
      */
     if (
         movingPiece.type === "pawn" &&
@@ -309,19 +281,38 @@ export function makeMove(
     }
 
     /*
-     * If there is no promotion, determine the
-     * resulting game status.
+     * Record the completed position.
      */
-    return {
-        type: "move",
-        gameState: {
-            ...newGameState,
-            status:
-                getGameStatus(
-                    newGameState
-                ),
-        },
-    };
+const stateWithHistory =
+    recordPosition(newGameState);
+
+/*
+ * Determine the resulting game status.
+ *
+ * Checkmate and stalemate take precedence over
+ * automatic draw conditions.
+ */
+const resultingStatus =
+    getGameStatus(stateWithHistory);
+
+const isAutomaticDraw =
+    resultingStatus !== "checkmate" &&
+    resultingStatus !== "stalemate" &&
+    (
+        isFivefoldRepetition(stateWithHistory) ||
+        isInsufficientMaterial(stateWithHistory) ||
+        isSeventyFiveMoveDraw(stateWithHistory)
+    );
+
+return {
+    type: "move",
+    gameState: {
+        ...stateWithHistory,
+        status: isAutomaticDraw
+            ? "draw"
+            : resultingStatus,
+    },
+};
 }
 
 
@@ -457,6 +448,16 @@ const enPassantMoves =
     for (
         const destination of candidateMoves
     ) {
+
+        // A king is never captured.
+// The game ends through checkmate instead.
+const targetPiece = gameState.pieces.find(
+    otherPiece => otherPiece.square === destination
+);
+
+if (targetPiece?.type === "king") {
+    continue;
+}
 
         // --------------------------------------------------
         // Determine whether this candidate is en passant.

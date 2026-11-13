@@ -263,6 +263,30 @@ if (event.code === 4001) {
         });
     }
 
+    sendDrawClaim(): void {
+    this.send({
+        type: "claim_draw",
+    });
+}
+
+    sendDrawOffer(): void {
+        this.send({
+            type: "offer_draw",
+        });
+    }
+
+    acceptDrawOffer(): void {
+        this.send({
+            type: "accept_draw",
+        });
+    }
+
+    declineDrawOffer(): void {
+        this.send({
+            type: "decline_draw",
+        });
+    }
+
     close(): void {
         // This is an intentional disconnect, so don't retry.
         this.stopped = true;

@@ -1,8 +1,10 @@
-
+import {
+    isThreefoldRepetition,
+    isFiftyMoveDrawClaimable,
+} from "../src/game/draw";
 import { DurableObject } from "cloudflare:workers";
 
 import {
-    getGameStatus,
     makeMove,
     promotePawn,
 } from "../src/game/engine";
@@ -311,13 +313,45 @@ export class GameRoom extends DurableObject<Env> {
             return;
         }
 
-        if (parsed.type === "promote") {
-            await this.handlePromotion(
-                ws,
-                attachment.color,
-                parsed.piece
-            );
-        }
+if (parsed.type === "promote") {
+    await this.handlePromotion(
+        ws,
+        attachment.color,
+        parsed.piece
+    );
+    return;
+}
+
+if (parsed.type === "claim_draw") {
+    await this.handleDrawClaim(
+        ws,
+        attachment.color
+    );
+}
+
+if (parsed.type === "offer_draw") {
+    await this.handleDrawOffer(
+        ws,
+        attachment.color
+    );
+    return;
+}
+
+if (parsed.type === "accept_draw") {
+    await this.handleDrawAcceptance(
+        ws,
+        attachment.color
+    );
+    return;
+}
+
+if (parsed.type === "decline_draw") {
+    await this.handleDrawDecline(
+        ws,
+        attachment.color
+    );
+    return;
+}
     }
 
 
@@ -464,11 +498,6 @@ private async authenticate(
             return;
         }
 
-        room.gameState = {
-            ...room.gameState,
-            status: getGameStatus(room.gameState),
-        };
-
         await this.saveRoom(room);
 
         this.broadcast({
@@ -511,11 +540,6 @@ private async authenticate(
             piece
         );
 
-        room.gameState = {
-            ...room.gameState,
-            status: getGameStatus(room.gameState),
-        };
-
         room.pendingPromotion = null;
 
         await this.saveRoom(room);
@@ -525,6 +549,193 @@ private async authenticate(
             gameState: room.gameState,
         });
     }
+private async handleDrawClaim(
+    ws: WebSocket,
+    color: Color
+): Promise<void> {
+    const room = await this.getRoom();
+
+    if (!room) {
+        this.sendError(ws, "Game does not exist.");
+        return;
+    }
+
+    // A draw can only be claimed while the game is active.
+    if (
+        room.gameState.status === "checkmate" ||
+        room.gameState.status === "stalemate" ||
+        room.gameState.status === "draw"
+    ) {
+        this.sendError(ws, "The game has already ended.");
+        return;
+    }
+
+    // Only the player whose turn it is may claim.
+    if (room.gameState.turn !== color) {
+        this.sendError(
+            ws,
+            "You can only claim a draw on your turn."
+        );
+        return;
+    }
+
+    // A pending promotion must be completed first.
+    if (room.pendingPromotion) {
+        this.sendError(
+            ws,
+            "Finish pawn promotion first."
+        );
+        return;
+    }
+
+// Verify that at least one valid draw claim condition exists.
+const canClaimThreefold =
+    isThreefoldRepetition(room.gameState);
+
+const canClaimFiftyMove =
+    isFiftyMoveDrawClaimable(room.gameState);
+
+if (!canClaimThreefold && !canClaimFiftyMove) {
+    this.sendError(
+        ws,
+        "No valid draw claim condition exists."
+    );
+    return;
+}
+
+    // The server ends the game.
+    room.gameState = {
+        ...room.gameState,
+        status: "draw",
+    };
+
+    await this.saveRoom(room);
+
+    this.broadcast({
+        type: "game_state",
+        gameState: room.gameState,
+    });
+}
+
+private async handleDrawOffer(
+    ws: WebSocket,
+    color: Color
+): Promise<void> {
+    const room = await this.getRoom();
+
+    if (!room) {
+        this.sendError(ws, "Game does not exist.");
+        return;
+    }
+
+    if (
+        room.gameState.status !== "playing" &&
+        room.gameState.status !== "check"
+    ) {
+        this.sendError(ws, "The game has ended.");
+        return;
+    }
+
+    if (room.gameState.turn !== color) {
+        this.sendError(ws, "You can only offer a draw on your turn.");
+        return;
+    }
+
+    if (room.pendingPromotion) {
+        this.sendError(ws, "Finish pawn promotion first.");
+        return;
+    }
+
+    if (room.gameState.drawOffer !== null) {
+        this.sendError(ws, "A draw offer is already pending.");
+        return;
+    }
+
+    room.gameState = {
+        ...room.gameState,
+        drawOffer: color,
+    };
+
+    await this.saveRoom(room);
+
+    this.broadcast({
+        type: "game_state",
+        gameState: room.gameState,
+    });
+}
+
+private async handleDrawAcceptance(
+    ws: WebSocket,
+    color: Color
+): Promise<void> {
+    const room = await this.getRoom();
+
+    if (!room) {
+        this.sendError(ws, "Game does not exist.");
+        return;
+    }
+
+    if (
+        room.gameState.status !== "playing" &&
+        room.gameState.status !== "check"
+    ) {
+        this.sendError(ws, "The game has ended.");
+        return;
+    }
+
+    if (
+        !room.gameState.drawOffer ||
+        room.gameState.drawOffer === color
+    ) {
+        this.sendError(ws, "There is no draw offer from your opponent.");
+        return;
+    }
+
+    room.gameState = {
+        ...room.gameState,
+        status: "draw",
+        drawOffer: null,
+    };
+
+    await this.saveRoom(room);
+
+    this.broadcast({
+        type: "game_state",
+        gameState: room.gameState,
+    });
+}
+
+private async handleDrawDecline(
+    ws: WebSocket,
+    color: Color
+): Promise<void> {
+    const room = await this.getRoom();
+
+    if (!room) {
+        this.sendError(ws, "Game does not exist.");
+        return;
+    }
+
+    if (
+        !room.gameState.drawOffer ||
+        room.gameState.drawOffer === color
+    ) {
+        this.sendError(ws, "There is no draw offer from your opponent.");
+        return;
+    }
+
+    room.gameState = {
+        ...room.gameState,
+        drawOffer: null,
+    };
+
+    await this.saveRoom(room);
+
+    this.broadcast({
+        type: "game_state",
+        gameState: room.gameState,
+    });
+}
 
 webSocketClose(
     ws: WebSocket,
@@ -604,7 +815,11 @@ webSocketClose(
                     message.piece === "bishop" ||
                     message.piece === "knight"
                 );
-
+            case "claim_draw":
+            case "offer_draw":
+            case "accept_draw":
+            case "decline_draw":
+                return true;
             default:
                 return false;
         }

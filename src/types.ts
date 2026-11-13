@@ -86,4 +86,7 @@ export interface GameState {
     completedRounds: number;
     status: GameStatus;
     lastMove: LastMove | null;
+    halfMoveClock: number;
+    positionHistory: string[];
+    drawOffer: Color | null;
 }

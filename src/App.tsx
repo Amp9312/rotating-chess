@@ -36,6 +36,11 @@ import type {
     Square,
 } from "./types";
 
+import {
+    isThreefoldRepetition,
+    isFiftyMoveDrawClaimable,
+} from "./game/draw";
+
 import "./App.css";
 
 function App() {
@@ -304,6 +309,41 @@ useEffect(() => {
             )
             : [];
 
+const canClaimDraw =
+    gameState !== null &&
+    playerRole === "player" &&
+    playerColor !== null &&
+    playerColor === gameState.turn &&
+    connectionStatus === "connected" &&
+    promotionSquare === null &&
+    (gameState.status === "playing" ||
+        gameState.status === "check") &&
+    (
+        isThreefoldRepetition(gameState) ||
+        isFiftyMoveDrawClaimable(gameState)
+    );
+
+const canOfferDraw =
+    gameState !== null &&
+    playerRole === "player" &&
+    playerColor !== null &&
+    playerColor === gameState.turn &&
+    connectionStatus === "connected" &&
+    promotionSquare === null &&
+    (gameState.status === "playing" ||
+        gameState.status === "check") &&
+    gameState.drawOffer === null;
+
+const canRespondToDraw =
+    gameState !== null &&
+    playerRole === "player" &&
+    playerColor !== null &&
+    connectionStatus === "connected" &&
+    promotionSquare === null &&
+    (gameState.status === "playing" ||
+        gameState.status === "check") &&
+    gameState.drawOffer !== null &&
+    gameState.drawOffer !== playerColor;
 
     /*
      * --------------------------------------------------
@@ -491,6 +531,70 @@ function handleLeaveGame() {
         }
     }
 
+    function handleDrawClaim() {
+    if (!canClaimDraw) {
+        return;
+    }
+
+    try {
+        connectionRef.current?.sendDrawClaim();
+    } catch (error) {
+        setConnectionError(
+            error instanceof Error
+                ? error.message
+                : "Failed to claim draw."
+        );
+    }
+}
+
+function handleDrawOffer() {
+    if (!canOfferDraw) {
+        return;
+    }
+
+    try {
+        connectionRef.current?.sendDrawOffer();
+    } catch (error) {
+        setConnectionError(
+            error instanceof Error
+                ? error.message
+                : "Failed to offer a draw."
+        );
+    }
+}
+
+function handleAcceptDraw() {
+    if (!canRespondToDraw) {
+        return;
+    }
+
+    try {
+        connectionRef.current?.acceptDrawOffer();
+    } catch (error) {
+        setConnectionError(
+            error instanceof Error
+                ? error.message
+                : "Failed to accept draw offer."
+        );
+    }
+}
+
+function handleDeclineDraw() {
+    if (!canRespondToDraw) {
+        return;
+    }
+
+    try {
+        connectionRef.current?.declineDrawOffer();
+    } catch (error) {
+        setConnectionError(
+            error instanceof Error
+                ? error.message
+                : "Failed to decline draw offer."
+        );
+    }
+}
+
 
     /*
      * --------------------------------------------------
@@ -573,7 +677,32 @@ function handleLeaveGame() {
                         Status:{" "}
                         {gameState.status}
                     </p>
+{canClaimDraw && (
+    <button onClick={handleDrawClaim}>
+        Claim Draw (Threefold Repetition / 50-Move Rule)
+    </button>
+)}
+{canOfferDraw && (
+    <button onClick={handleDrawOffer}>
+        Offer Draw
+    </button>
+)}
 
+{canRespondToDraw && (
+    <div className="draw-response">
+        <p>
+            Your opponent has offered a draw.
+        </p>
+
+        <button onClick={handleAcceptDraw}>
+            Accept Draw
+        </button>
+
+        <button onClick={handleDeclineDraw}>
+            Decline Draw
+        </button>
+    </div>
+)}
                     <p>
                         Legal moves:{" "}
                         {legalMoves.join(", ")}

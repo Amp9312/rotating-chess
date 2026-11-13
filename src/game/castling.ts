@@ -8,6 +8,37 @@ import {
     isSquareAttacked,
 } from "./movement";
 
+/**
+ * Determine whether a king would be in check
+ * if it occupied a particular square.
+ *
+ * This simulates the king's movement without
+ * modifying the actual game state.
+ */
+function isKingSquareSafe(
+    king: Piece,
+    targetSquare: Square,
+    gameState: GameState,
+    opponentColor: "white" | "black"
+): boolean {
+    const hypotheticalPieces = gameState.pieces.map(piece => {
+        if (piece.id === king.id) {
+            return {
+                ...piece,
+                square: targetSquare,
+            };
+        }
+
+        return piece;
+    });
+
+    return !isSquareAttacked(
+        targetSquare,
+        opponentColor,
+        hypotheticalPieces,
+        gameState.rotation
+    );
+}
 
 function getOpponentColor(
     color: "white" | "black"
@@ -107,19 +138,19 @@ export function getCastlingMoves(
                         gSquare
             );
 
-        const kingPathIsSafe =
-            !isSquareAttacked(
-                fSquare,
-                opponentColor,
-                gameState.pieces,
-                gameState.rotation
-            ) &&
-            !isSquareAttacked(
-                gSquare,
-                opponentColor,
-                gameState.pieces,
-                gameState.rotation
-            );
+const kingPathIsSafe =
+    isKingSquareSafe(
+        piece,
+        fSquare,
+        gameState,
+        opponentColor
+    ) &&
+    isKingSquareSafe(
+        piece,
+        gSquare,
+        gameState,
+        opponentColor
+    );
 
         if (
             squaresAreEmpty &&

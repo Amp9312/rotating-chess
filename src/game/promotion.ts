@@ -11,6 +11,14 @@ import {
     squareToPhysical,
 } from "./rotation";
 
+import {
+    recordPosition,
+    isFivefoldRepetition,
+    isInsufficientMaterial,
+    isSeventyFiveMoveDraw,
+} from "./draw";
+
+import { getGameStatus } from "./rules";
 
 export function isPromotionSquare(
     square: Square,
@@ -31,11 +39,16 @@ export function isPromotionSquare(
 }
 
 
+
+
 export function promotePawn(
     gameState: GameState,
     square: Square,
     promotionPiece: PromotionPiece
 ): GameState {
+    /*
+     * Replace the pawn with the selected promotion piece.
+     */
     const pieces =
         gameState.pieces.map(
             (piece: Piece) => {
@@ -53,8 +66,48 @@ export function promotePawn(
             }
         );
 
-    return {
+    /*
+     * Construct the promoted game state.
+     */
+    const promotedGameState: GameState = {
         ...gameState,
         pieces,
     };
+
+    /*
+     * Determine the resulting game status.
+     */
+    const resultingStatus =
+        getGameStatus(promotedGameState);
+
+    /*
+     * Record the completed position in history.
+     */
+    const stateWithHistory =
+        recordPosition({
+            ...promotedGameState,
+            status: resultingStatus,
+        });
+
+    /*
+     * Check automatic draw conditions.
+     *
+     * Checkmate and stalemate take precedence.
+     */
+    const isAutomaticDraw =
+        resultingStatus !== "checkmate" &&
+        resultingStatus !== "stalemate" &&
+        (
+            isFivefoldRepetition(stateWithHistory) ||
+            isInsufficientMaterial(stateWithHistory) ||
+            isSeventyFiveMoveDraw(stateWithHistory)
+        );
+
+    return {
+        ...stateWithHistory,
+        status: isAutomaticDraw
+            ? "draw"
+            : resultingStatus,
+    };
 }
+
