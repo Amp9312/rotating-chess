@@ -92,6 +92,7 @@ function App() {
     const [gameId, setGameId] =
         useState<string | null>(null);
 
+
     const [endAnimationPhase, setEndAnimationPhase] =
         useState<EndAnimationPhase>("idle");
 
@@ -684,286 +685,288 @@ function handleDeclineDraw() {
      * Render
      * --------------------------------------------------
      */
-const isGameOver =
-    gameState !== null &&
-    (
-        gameState.status === "checkmate" ||
-        gameState.status === "stalemate" ||
-        gameState.status === "draw"
-    );
 
-const resultMessage = gameState
-    ? gameState.winner
-        ? `${gameState.winner === "white" ? "White" : "Black"} wins`
-        : "Draw"
-    : "";
+    const isGameOver =
+        gameState !== null &&
+        (
+            gameState.status === "checkmate" ||
+            gameState.status === "stalemate" ||
+            gameState.status === "draw"
+        );
 
-const resultDetail = gameState
-    ? getEndReasonLabel(gameState.endReason)
-    : "";
+    const resultMessage = gameState
+        ? gameState.winner
+            ? `${gameState.winner === "white" ? "White" : "Black"} wins`
+            : "Draw"
+        : "";
+
+    const resultDetail = gameState
+        ? getEndReasonLabel(gameState.endReason)
+        : "";
+
     return (
         <main>
             <h1>
                 Rotating Chess
             </h1>
 
-{!gameState && !gameId && (
-    <section>
-        <p>
-            No game connected.
-        </p>
+            {!gameState && !gameId && (
+                <section>
+                    <p>No game connected.</p>
 
-        <button onClick={handleCreateGame}>
-            Create Game
-        </button>
+                    <button onClick={handleCreateGame}>
+                        Create Game
+                    </button>
 
-        <button onClick={handleJoinGame}>
-            Join Game
-        </button>
-    </section>
-)}
-
-{gameId && !gameState && (
-    <p>
-        Reconnecting to game {gameId}...
-    </p>
-)}
-
-            {gameId && (
-                <p>
-                    Game ID:{" "}
-                    <strong>
-                        {gameId}
-                    </strong>
-                </p>
+                    <button onClick={handleJoinGame}>
+                        Join Game
+                    </button>
+                </section>
             )}
 
-            {gameId && (
-    <button onClick={handleLeaveGame}>
-        Leave Game
-    </button>
-)}
-
-            {playerColor && (
+            {gameId && !gameState && (
                 <p>
-                    You are:{" "}
-                    <strong>
-                        {playerColor}
-                    </strong>
+                    Reconnecting to game {gameId}...
                 </p>
             )}
-
-            <p>
-                Connection:{" "}
-                {connectionStatus}
-            </p>
 
             {connectionError && (
                 <p>
-                    Error:{" "}
-                    {connectionError}
+                    Error: {connectionError}
                 </p>
             )}
 
             {gameState && (
-                <>
-                    <p>
-                        Turn:{" "}
-                        {gameState.turn}
-                    </p>
+                <div className="game-layout">
 
-                    <p>
-                        Status:{" "}
-                        {gameState.status}
-                    </p>
-{canClaimDraw && (
-    <button onClick={handleDrawClaim}>
-        Claim Draw (Threefold Repetition / 50-Move Rule)
-    </button>
-)}
-{canOfferDraw && (
-    <button onClick={handleDrawOffer}>
-        Offer Draw
-    </button>
-)}
+                    {/* LEFT COLUMN: BOARD */}
 
-{canRespondToDraw && (
-    <div className="draw-response">
-        <p>
-            Your opponent has offered a draw.
-        </p>
+                    <section className="board-column">
+                        <div className="board-stage">
+                            {isGameOver && endAnimationPhase === "result" && (
+                                <div className="end-result-reveal">
+                                    <h2>{resultMessage}</h2>
+                                    <p>{resultDetail}</p>
+                                </div>
+                            )}
 
-        <button onClick={handleAcceptDraw}>
-            Accept Draw
-        </button>
-
-        <button onClick={handleDeclineDraw}>
-            Decline Draw
-        </button>
-    </div>
-)}
-                    <p>
-                        Legal moves:{" "}
-                        {legalMoves.join(", ")}
-                    </p>
-
-                    <div className="game-info">
-                        <p>
-                            Rotation:{" "}
-                            {gameState.rotation}°
-                        </p>
-
-                        <p>
-                            Completed rounds:{" "}
-                            {
-                                gameState.completedRounds
-                            }
-                        </p>
-
-                        <p>
-                            Turn:{" "}
-                            {gameState.turn}
-                        </p>
-                    </div>
-
-                    <div className="rotation-debug">
-                        <label>
-                            <input
-                                type="checkbox"
-                                checked={
-                                    showRotationDebug
+                            <ChessBoard
+                                pieces={gameState.pieces}
+                                rotation={gameState.rotation}
+                                selectedSquare={selectedSquare}
+                                legalMoves={legalMoves}
+                                onSquareClick={handleSquareClick}
+                                showCoordinates={showRotationDebug}
+                                showRotationDebug={showRotationDebug}
+                                readOnly={
+                                    playerRole !== "player" ||
+                                    connectionStatus !== "connected" ||
+                                    isGameOver
                                 }
-                                onChange={
-                                    event =>
+                                endAnimationPhase={endAnimationPhase}
+                                onVortexComplete={handleVortexComplete}
+                                onRestoreComplete={handleRestoreComplete}
+                            />
+                        </div>
+
+                        {/* Developer options */}
+
+                        <div className="rotation-debug">
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    checked={showRotationDebug}
+                                    onChange={event =>
                                         setShowRotationDebug(
                                             event.target.checked
                                         )
-                                }
-                            />
-
-                            {" "}
-                            Show rotation debug
-                        </label>
-
-                        {/*
-                         * These buttons remain temporarily
-                         * for development.
-                         *
-                         * They should NOT be used as part
-                         * of an actual multiplayer game.
-                         */}
-
-                        {showRotationDebug && (
-                            <div>
-                                <button
-                                    onClick={() =>
-                                        setGameState(
-                                            current =>
-                                                current
-                                                    ? {
-                                                        ...current,
-                                                        rotation: 0,
-                                                    }
-                                                    : current
-                                        )
                                     }
-                                >
-                                    0°
-                                </button>
+                                />
 
-                                <button
-                                    onClick={() =>
-                                        setGameState(
-                                            current =>
-                                                current
-                                                    ? {
-                                                        ...current,
-                                                        rotation: 90,
-                                                    }
-                                                    : current
-                                        )
-                                    }
-                                >
-                                    90°
-                                </button>
+                                {" "}
+                                Show rotation debug
+                            </label>
 
-                                <button
-                                    onClick={() =>
-                                        setGameState(
-                                            current =>
+                            {showRotationDebug && (
+                                <div>
+                                    <button
+                                        onClick={() =>
+                                            setGameState(current =>
                                                 current
-                                                    ? {
-                                                        ...current,
-                                                        rotation: 180,
-                                                    }
+                                                    ? { ...current, rotation: 0 }
                                                     : current
-                                        )
-                                    }
-                                >
-                                    180°
-                                </button>
+                                            )
+                                        }
+                                    >
+                                        0°
+                                    </button>
 
-                                <button
-                                    onClick={() =>
-                                        setGameState(
-                                            current =>
+                                    <button
+                                        onClick={() =>
+                                            setGameState(current =>
                                                 current
-                                                    ? {
-                                                        ...current,
-                                                        rotation: 270,
-                                                    }
+                                                    ? { ...current, rotation: 90 }
                                                     : current
-                                        )
-                                    }
-                                >
-                                    270°
+                                            )
+                                        }
+                                    >
+                                        90°
+                                    </button>
+
+                                    <button
+                                        onClick={() =>
+                                            setGameState(current =>
+                                                current
+                                                    ? { ...current, rotation: 180 }
+                                                    : current
+                                            )
+                                        }
+                                    >
+                                        180°
+                                    </button>
+
+                                    <button
+                                        onClick={() =>
+                                            setGameState(current =>
+                                                current
+                                                    ? { ...current, rotation: 270 }
+                                                    : current
+                                            )
+                                        }
+                                    >
+                                        270°
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+
+                    {/* RIGHT COLUMN: GAME INFORMATION */}
+
+                    <aside className="game-sidebar">
+
+                        {gameId && (
+                            <section className="session-panel">
+                                <div className="session-header">
+                                    <div className="game-id-text">
+                                        <span>Game ID</span>
+                                        <strong>{gameId}</strong>
+                                    </div>
+
+                                    <div className="session-actions">
+                                        {canOfferDraw && (
+                                            <button
+                                                className="offer-draw-button"
+                                                onClick={handleDrawOffer}
+                                            >
+                                                Offer Draw
+                                            </button>
+                                        )}
+
+                                        <button
+                                            className="leave-game-button"
+                                            onClick={handleLeaveGame}
+                                        >
+                                            Leave Game
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="session-center">
+                                    <div
+                                        className={`turn-piece ${gameState.turn}`}
+                                        aria-label={`${gameState.turn} pawn`}
+                                    >
+                                        {gameState.turn === "white" ? "♙" : "♟"}
+                                    </div>
+
+                                    <div className="session-status-details">
+                                        <strong>
+                                            {gameState.turn === "white"
+                                                ? "White to move"
+                                                : "Black to move"}
+                                        </strong>
+
+                                        <span>
+                                            {gameState.status === "playing"
+                                                ? "Game in progress"
+                                                : gameState.status === "check"
+                                                    ? "Check"
+                                                    : gameState.status.replace(/_/g, " ")}
+                                        </span>
+
+                                        <span className={`connection-indicator ${connectionStatus}`}>
+                                            <span className="connection-dot" />
+                                            {connectionStatus}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {playerColor && (
+                                    <div className="session-player">
+                                        Playing as: <strong>{playerColor}</strong>
+                                    </div>
+                                )}
+
+                                <div className="game-info">
+                                    <span>
+                                        Rotation: <strong>{gameState.rotation}°</strong>
+                                    </span>
+
+                                    <span>
+                                        Completed rounds:{" "}
+                                        <strong>{gameState.completedRounds}</strong>
+                                    </span>
+                                </div>
+                            </section>
+                        )}
+
+                        {/* Draw controls */}
+
+                        {canClaimDraw && (
+                            <div className="draw-controls">
+                                <button onClick={handleDrawClaim}>
+                                    Claim Draw (Threefold Repetition / 50-Move Rule)
                                 </button>
                             </div>
                         )}
-                    </div>
 
-<div className="board-stage">
-    {isGameOver && endAnimationPhase === "result" && (
-        <div className="end-result-reveal">
-            <h2>{resultMessage}</h2>
-            <p>{resultDetail}</p>
-        </div>
-    )}
+                        {canRespondToDraw && (
+                            <div className="draw-response">
+                                <p>
+                                    Your opponent has offered a draw.
+                                </p>
 
-    <ChessBoard
-        pieces={gameState.pieces}
-        rotation={gameState.rotation}
-        selectedSquare={selectedSquare}
-        legalMoves={legalMoves}
-        onSquareClick={handleSquareClick}
-        showCoordinates={showRotationDebug}
-        showRotationDebug={showRotationDebug}
-        readOnly={
-            playerRole !== "player" ||
-            connectionStatus !== "connected" ||
-            isGameOver
-        }
-        endAnimationPhase={endAnimationPhase}
-        onVortexComplete={handleVortexComplete}
-        onRestoreComplete={handleRestoreComplete}
-    />
-</div>
+                                <button onClick={handleAcceptDraw}>
+                                    Accept Draw
+                                </button>
 
-{isGameOver && endAnimationPhase === "complete" && (
-    <div className="end-result-panel">
-        <strong>{resultMessage}</strong>
-        <span>{resultDetail}</span>
-    </div>
-)}
+                                <button onClick={handleDeclineDraw}>
+                                    Decline Draw
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Final game result */}
+
+                        {isGameOver && endAnimationPhase === "complete" && (
+                            <div className="end-result-panel">
+                                <strong>{resultMessage}</strong>
+                                <span>{resultDetail}</span>
+                            </div>
+                        )}
+
+                    </aside>
+
+                    {/* Promotion dialog */}
 
                     {promotionSquare && (
                         <PromotionDialog
-                            onSelect={
-                                handlePromotion
-                            }
+                            onSelect={handlePromotion}
                         />
                     )}
-                </>
+
+                </div>
             )}
         </main>
     );

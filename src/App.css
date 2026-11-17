@@ -1,4 +1,9 @@
+
 /* Basic page styling */
+
+* {
+    box-sizing: border-box;
+}
 
 #root {
     min-height: 100vh;
@@ -16,8 +21,258 @@ main {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding-top: 40px;
+    padding: 24px 16px 40px;
 }
+
+main h1 {
+    margin: 0 0 20px;
+    text-align: center;
+}
+
+/* Session information */
+
+.session-panel {
+    width: min(560px, 100%);
+    margin: 0 auto 20px;
+    padding: 14px 18px;
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 8px;
+}
+
+.session-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.game-id-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.game-id-text span {
+    font-size: 0.8rem;
+    color: #aaa;
+}
+
+.game-id-text strong {
+    font-size: 1.1rem;
+    letter-spacing: 0.04em;
+}
+
+.session-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.session-actions button {
+    padding: 8px 12px;
+    border: 1px solid #777;
+    border-radius: 5px;
+    background: #444;
+    color: white;
+    cursor: pointer;
+}
+
+.session-actions button:hover {
+    background: #555;
+}
+
+.leave-game-button {
+    border-color: #855;
+}
+
+.session-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #555;
+    font-size: 0.9rem;
+    color: #ccc;
+}
+
+.connection-indicator {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    text-transform: capitalize;
+}
+
+.connection-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #999;
+}
+
+.connection-indicator.connected .connection-dot {
+    background: #55c878;
+}
+
+.connection-indicator.connecting .connection-dot,
+.connection-indicator.reconnecting .connection-dot {
+    background: #e5b84b;
+}
+
+.connection-indicator.disconnected .connection-dot {
+    background: #d66;
+}
+
+/* Current game information */
+
+.current-game-panel {
+    width: min(560px, 100%);
+    margin: 0 auto 16px;
+    padding: 14px 18px;
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 8px;
+}
+
+.game-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.turn-piece {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    font-size: 36px;
+    line-height: 1;
+}
+
+.turn-piece.white {
+    background: #eee;
+    color: #222;
+}
+
+.turn-piece.black {
+    background: #171717;
+    color: #fff;
+    border: 1px solid #777;
+}
+
+.game-status-details {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.game-status-details strong {
+    font-size: 1rem;
+}
+
+.game-status-details span {
+    font-size: 0.85rem;
+    color: #bbb;
+}
+
+.game-info {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #555;
+    font-size: 0.85rem;
+    color: #bbb;
+}
+
+.game-info strong {
+    color: white;
+}
+
+/* Draw controls */
+
+.draw-response {
+    margin: 12px 0;
+    text-align: center;
+}
+
+/* Chessboard */
+
+.board-stage {
+    position: relative;
+    width: fit-content;
+    max-width: 100%;
+    margin: 16px auto;
+}
+
+.board-stage .chess-board {
+    position: relative;
+    z-index: 1;
+}
+
+/* End-game animation */
+
+.end-result-reveal {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    z-index: 0;
+}
+
+.end-result-reveal h2 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.end-result-reveal p {
+    font-size: 1.1rem;
+}
+
+.end-result-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    margin: 1rem auto;
+    padding: 1rem;
+    text-align: center;
+    border: 1px solid #888;
+    border-radius: 8px;
+    max-width: 400px;
+}
+
+/* Developer options */
+
+.rotation-debug {
+    width: min(560px, 100%);
+    margin: 16px auto;
+    padding: 10px 0;
+    color: #aaa;
+    font-size: 0.85rem;
+}
+
+.rotation-debug label {
+    cursor: pointer;
+}
+
+.rotation-debug input {
+    margin-right: 6px;
+}
+
+.rotation-debug button {
+    margin: 8px 4px 0 0;
+}
+
+/* Promotion dialog */
 
 .promotion-dialog {
     margin-top: 20px;
@@ -36,4 +291,234 @@ main {
 .promotion-options button {
     padding: 10px 16px;
     cursor: pointer;
+}
+
+.offer-draw-button {
+    border-color: #8b9d76 !important;
+}
+
+.offer-draw-button:hover {
+    background: #4b6043 !important;
+}
+
+.session-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin: 22px auto;
+    text-align: center;
+}
+
+.session-status-details {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.session-status-details strong {
+    font-size: 1.1rem;
+}
+
+.session-status-details > span:not(.connection-indicator) {
+    color: #bbb;
+    font-size: 0.9rem;
+}
+
+.session-player {
+    text-align: center;
+    color: #bbb;
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+}
+
+.session-player strong {
+    color: white;
+}
+
+.game-info {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #555;
+    font-size: 0.85rem;
+    color: #bbb;
+}
+
+.game-info strong {
+    color: white;
+}
+
+
+/* Desktop game layout */
+
+.game-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.85fr);
+    gap: 28px;
+    align-items: start;
+    width: min(1500px, 100%);
+    margin: 0 auto;
+}
+
+.board-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+}
+
+.board-column .board-stage {
+    margin: 0 auto;
+    max-width: 100%;
+}
+
+.game-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.game-sidebar .session-panel {
+    width: 100%;
+    margin: 0;
+}
+
+.game-sidebar .game-info {
+    flex-wrap: wrap;
+    gap: 10px 20px;
+}
+
+.game-sidebar .draw-controls {
+    display: flex;
+    justify-content: center;
+}
+
+.game-sidebar .draw-response {
+    padding: 14px;
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.game-sidebar .end-result-panel {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+}
+
+.board-column .rotation-debug {
+    width: 100%;
+    max-width: 560px;
+}
+
+/* Mobile layout */
+
+@media (max-width: 900px) {
+    main {
+        padding: 16px 12px 32px;
+    }
+
+    main h1 {
+        font-size: clamp(1.8rem, 7vw, 2.5rem);
+        margin-bottom: 16px;
+    }
+
+    /* Stack the game into one column */
+
+    .game-layout {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        width: 100%;
+    }
+
+/* Put the chessboard above game information */
+
+.board-column {
+    order: 1;
+    width: 100%;
+}
+
+.game-sidebar {
+    order: 2;
+    width: 100%;
+    max-width: 568px;
+}
+
+    /* Allow the board to fill the available width */
+
+    .board-column .board-stage {
+        width: 100%;
+        max-width: 568px;
+        margin: 0 auto;
+    }
+
+    .board-stage .chess-board {
+        width: 100%;
+        max-width: 568px;
+    }
+
+    /* More compact session information */
+
+    .game-sidebar .session-panel {
+        padding: 12px;
+    }
+
+    .session-header {
+        gap: 8px;
+    }
+
+    .session-actions {
+        gap: 6px;
+    }
+
+    .session-actions button {
+        padding: 8px 10px;
+        font-size: 0.85rem;
+    }
+
+    .session-center {
+        margin: 16px auto;
+    }
+
+    .game-info {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px 18px;
+    }
+
+    /* Keep draw controls usable */
+
+    .draw-controls button,
+    .draw-response button {
+        min-height: 40px;
+        padding: 8px 12px;
+    }
+
+    .draw-response {
+        padding: 12px;
+    }
+
+    /* Developer options */
+
+    .board-column .rotation-debug {
+        max-width: 568px;
+    }
+
+    /* Promotion dialog */
+
+    .promotion-dialog {
+        max-width: calc(100vw - 24px);
+    }
+
+    .promotion-options {
+        flex-wrap: wrap;
+    }
 }
