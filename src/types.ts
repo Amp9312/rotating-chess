@@ -62,6 +62,16 @@ export type PromotionPiece =
     | "bishop"
     | "knight";
 
+export type GameEndReason =
+    | "checkmate"
+    | "stalemate"
+    | "fivefold_repetition"
+    | "insufficient_material"
+    | "seventy_five_move_rule"
+    | "threefold_repetition_claim"
+    | "fifty_move_rule_claim"
+    | "agreement";
+
 /**
  * Represents one chess piece on the board.
  */
@@ -89,4 +99,6 @@ export interface GameState {
     halfMoveClock: number;
     positionHistory: string[];
     drawOffer: Color | null;
+    winner: Color | null;
+    endReason: GameEndReason | null;
 }

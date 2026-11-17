@@ -94,20 +94,43 @@ export function promotePawn(
      *
      * Checkmate and stalemate take precedence.
      */
-    const isAutomaticDraw =
-        resultingStatus !== "checkmate" &&
-        resultingStatus !== "stalemate" &&
-        (
-            isFivefoldRepetition(stateWithHistory) ||
-            isInsufficientMaterial(stateWithHistory) ||
-            isSeventyFiveMoveDraw(stateWithHistory)
-        );
+const fivefoldRepetition =
+    isFivefoldRepetition(stateWithHistory);
 
-    return {
-        ...stateWithHistory,
-        status: isAutomaticDraw
-            ? "draw"
-            : resultingStatus,
-    };
+const insufficientMaterial =
+    isInsufficientMaterial(stateWithHistory);
+
+const seventyFiveMoveRule =
+    isSeventyFiveMoveDraw(stateWithHistory);
+
+let endReason: GameState["endReason"] = null;
+let winner: Color | null = null;
+
+if (resultingStatus === "checkmate") {
+    endReason = "checkmate";
+    winner = gameState.turn === "white" ? "black" : "white";
+} else if (resultingStatus === "stalemate") {
+    endReason = "stalemate";
+} else if (fivefoldRepetition) {
+    endReason = "fivefold_repetition";
+} else if (insufficientMaterial) {
+    endReason = "insufficient_material";
+} else if (seventyFiveMoveRule) {
+    endReason = "seventy_five_move_rule";
+}
+
+const isAutomaticDraw =
+    endReason !== null &&
+    endReason !== "checkmate" &&
+    endReason !== "stalemate";
+
+return {
+    ...stateWithHistory,
+    status: isAutomaticDraw
+        ? "draw"
+        : resultingStatus,
+    winner,
+    endReason,
+};
 }
 

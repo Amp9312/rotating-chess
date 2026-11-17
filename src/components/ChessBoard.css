@@ -75,3 +75,16 @@
         scroll-behavior: auto;
     }
 }
+
+.chess-board.board-collapsed {
+    opacity: 0;
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chess-board,
+    .board-square {
+        transition: none !important;
+        animation: none !important;
+    }
+}

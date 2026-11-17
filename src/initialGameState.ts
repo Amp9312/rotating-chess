@@ -12,6 +12,8 @@ export const initialGameState: GameState = {
     halfMoveClock: 0,
     positionHistory: [],
     drawOffer: null,
+    winner: null,
+    endReason: null,
 };
 
 initialGameState.positionHistory = [

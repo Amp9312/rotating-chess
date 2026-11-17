@@ -50,6 +50,36 @@ function App() {
      * --------------------------------------------------
      */
 
+    type EndAnimationPhase =
+    | "idle"
+    | "collapsing"
+    | "result"
+    | "restoring"
+    | "complete";
+
+    function getEndReasonLabel(reason: GameState["endReason"]): string {
+    switch (reason) {
+        case "checkmate":
+            return "by checkmate";
+        case "stalemate":
+            return "by stalemate";
+        case "fivefold_repetition":
+            return "by fivefold repetition";
+        case "insufficient_material":
+            return "by insufficient material";
+        case "seventy_five_move_rule":
+            return "by the 75-move rule";
+        case "threefold_repetition_claim":
+            return "by a threefold repetition claim";
+        case "fifty_move_rule_claim":
+            return "by the 50-move rule";
+        case "agreement":
+            return "by agreement";
+        default:
+            return "— game over";
+    }
+}
+
     const [gameState, setGameState] =
         useState<GameState | null>(null);
 
@@ -61,6 +91,20 @@ function App() {
 
     const [gameId, setGameId] =
         useState<string | null>(null);
+
+    const [endAnimationPhase, setEndAnimationPhase] =
+        useState<EndAnimationPhase>("idle");
+
+    const previousGameStatusRef =
+        useRef<GameState["status"] | null>(null);
+
+const handleVortexComplete = useCallback(() => {
+    setEndAnimationPhase("result");
+}, []);
+
+const handleRestoreComplete = useCallback(() => {
+    setEndAnimationPhase("complete");
+}, []);
 
 const [connectionStatus, setConnectionStatus] =
     useState<
@@ -116,6 +160,8 @@ const connectToGame = useCallback((
          */
         setPromotionSquare(null);
 setSelectedSquare(null);
+previousGameStatusRef.current = null;
+setEndAnimationPhase("idle");
 
         connectionRef.current?.close();
 
@@ -222,7 +268,44 @@ useEffect(() => {
     };
 }, [connectToGame]);
 
+useEffect(() => {
+    if (!gameState) {
+        previousGameStatusRef.current = null;
+        return;
+    }
 
+    const previousStatus =
+        previousGameStatusRef.current;
+
+    const wasActive =
+        previousStatus === "playing" ||
+        previousStatus === "check";
+
+    const isEnded =
+        gameState.status === "checkmate" ||
+        gameState.status === "stalemate" ||
+        gameState.status === "draw";
+
+    if (wasActive && isEnded) {
+        setEndAnimationPhase("collapsing");
+    }
+
+    previousGameStatusRef.current =
+        gameState.status;
+
+}, [gameState?.status]);
+
+useEffect(() => {
+    if (endAnimationPhase !== "result") {
+        return;
+    }
+
+    const timeout = window.setTimeout(() => {
+        setEndAnimationPhase("restoring");
+    }, 2000);
+
+    return () => window.clearTimeout(timeout);
+}, [endAnimationPhase]);
 
     /*
      * --------------------------------------------------
@@ -601,7 +684,23 @@ function handleDeclineDraw() {
      * Render
      * --------------------------------------------------
      */
+const isGameOver =
+    gameState !== null &&
+    (
+        gameState.status === "checkmate" ||
+        gameState.status === "stalemate" ||
+        gameState.status === "draw"
+    );
 
+const resultMessage = gameState
+    ? gameState.winner
+        ? `${gameState.winner === "white" ? "White" : "Black"} wins`
+        : "Draw"
+    : "";
+
+const resultDetail = gameState
+    ? getEndReasonLabel(gameState.endReason)
+    : "";
     return (
         <main>
             <h1>
@@ -823,33 +922,39 @@ function handleDeclineDraw() {
                         )}
                     </div>
 
-                    <ChessBoard
-                        pieces={
-                            gameState.pieces
-                        }
-                        rotation={
-                            gameState.rotation
-                        }
-                        selectedSquare={
-                            selectedSquare
-                        }
-                        legalMoves={
-                            legalMoves
-                        }
-                        onSquareClick={
-                            handleSquareClick
-                        }
-                        showCoordinates={
-                            showRotationDebug
-                        }
-                        showRotationDebug={
-                            showRotationDebug
-                        }
-                        readOnly={
-    playerRole !== "player" ||
-    connectionStatus !== "connected"
-}
-                    />
+<div className="board-stage">
+    {isGameOver && endAnimationPhase === "result" && (
+        <div className="end-result-reveal">
+            <h2>{resultMessage}</h2>
+            <p>{resultDetail}</p>
+        </div>
+    )}
+
+    <ChessBoard
+        pieces={gameState.pieces}
+        rotation={gameState.rotation}
+        selectedSquare={selectedSquare}
+        legalMoves={legalMoves}
+        onSquareClick={handleSquareClick}
+        showCoordinates={showRotationDebug}
+        showRotationDebug={showRotationDebug}
+        readOnly={
+            playerRole !== "player" ||
+            connectionStatus !== "connected" ||
+            isGameOver
+        }
+        endAnimationPhase={endAnimationPhase}
+        onVortexComplete={handleVortexComplete}
+        onRestoreComplete={handleRestoreComplete}
+    />
+</div>
+
+{isGameOver && endAnimationPhase === "complete" && (
+    <div className="end-result-panel">
+        <strong>{resultMessage}</strong>
+        <span>{resultDetail}</span>
+    </div>
+)}
 
                     {promotionSquare && (
                         <PromotionDialog

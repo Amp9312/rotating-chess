@@ -295,14 +295,35 @@ const stateWithHistory =
 const resultingStatus =
     getGameStatus(stateWithHistory);
 
+const fivefoldRepetition =
+    isFivefoldRepetition(stateWithHistory);
+
+const insufficientMaterial =
+    isInsufficientMaterial(stateWithHistory);
+
+const seventyFiveMoveRule =
+    isSeventyFiveMoveDraw(stateWithHistory);
+
+let endReason: GameState["endReason"] = null;
+let winner: Color | null = null;
+
+if (resultingStatus === "checkmate") {
+    endReason = "checkmate";
+    winner = nextTurn === "white" ? "black" : "white";
+} else if (resultingStatus === "stalemate") {
+    endReason = "stalemate";
+} else if (fivefoldRepetition) {
+    endReason = "fivefold_repetition";
+} else if (insufficientMaterial) {
+    endReason = "insufficient_material";
+} else if (seventyFiveMoveRule) {
+    endReason = "seventy_five_move_rule";
+}
+
 const isAutomaticDraw =
-    resultingStatus !== "checkmate" &&
-    resultingStatus !== "stalemate" &&
-    (
-        isFivefoldRepetition(stateWithHistory) ||
-        isInsufficientMaterial(stateWithHistory) ||
-        isSeventyFiveMoveDraw(stateWithHistory)
-    );
+    endReason !== null &&
+    endReason !== "checkmate" &&
+    endReason !== "stalemate";
 
 return {
     type: "move",
@@ -311,6 +332,8 @@ return {
         status: isAutomaticDraw
             ? "draw"
             : resultingStatus,
+        winner,
+        endReason,
     },
 };
 }

@@ -604,11 +604,15 @@ if (!canClaimThreefold && !canClaimFiftyMove) {
 }
 
     // The server ends the game.
-    room.gameState = {
-        ...room.gameState,
-        status: "draw",
-    };
-
+room.gameState = {
+    ...room.gameState,
+    status: "draw",
+    winner: null,
+    endReason: canClaimThreefold
+        ? "threefold_repetition_claim"
+        : "fifty_move_rule_claim",
+    drawOffer: null,
+};
     await this.saveRoom(room);
 
     this.broadcast({
@@ -691,11 +695,13 @@ private async handleDrawAcceptance(
         return;
     }
 
-    room.gameState = {
-        ...room.gameState,
-        status: "draw",
-        drawOffer: null,
-    };
+room.gameState = {
+    ...room.gameState,
+    status: "draw",
+    winner: null,
+    endReason: "agreement",
+    drawOffer: null,
+};
 
     await this.saveRoom(room);
 
